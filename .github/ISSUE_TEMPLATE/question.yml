@@ -1,0 +1,38 @@
+name: Usage question
+description: Ask for help using or understanding Parallax.
+title: '[Question]: '
+labels:
+  - question
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I read the README, architecture guide, security model, and support guide.
+          required: true
+        - label: I searched existing issues and did not find an answer.
+          required: true
+        - label: This question does not disclose a security vulnerability.
+          required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to do, and where are you blocked?
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you tried?
+      description: Include relevant commands, documentation, and redacted output.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the Parallax version or commit, operating system, Node.js version, and pnpm version.
+    validations:
+      required: true

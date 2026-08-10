@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible problem in Parallax.
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Parallax. Do not include secrets or personal data.
+        For a suspected vulnerability, stop here and follow `.github/SECURITY.md`.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: This report does not contain a security vulnerability.
+          required: true
+        - label: I have removed credentials and personal data from logs and examples.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Parallax version or commit
+      description: Provide a release version or full commit SHA.
+      placeholder: 0.1.0 or 9ae232b...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include operating system, Node.js version, and pnpm version.
+      placeholder: macOS 15, Node.js 22.18.0, pnpm 10.32.1
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: List the smallest sequence of commands or code that reproduces the problem.
+      placeholder: |
+        1. Run ...
+        2. Approve ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste only the relevant, redacted output.
+      render: shell
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add anything else that may help diagnose the problem.

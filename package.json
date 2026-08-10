@@ -3,9 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "description": "A secure, extensible agent runtime with a CLI as its first interface.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SingularityCoLabs/parallax.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SingularityCoLabs/parallax/issues"
+  },
+  "homepage": "https://github.com/SingularityCoLabs/parallax#readme",
   "type": "module",
+  "packageManager": "pnpm@10.32.1",
   "engines": {
-    "node": ">=22.6.0"
+    "node": ">=22.18.0"
   },
   "bin": {
     "parallax": "./src/cli/index.ts"

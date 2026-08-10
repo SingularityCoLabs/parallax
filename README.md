@@ -1,5 +1,8 @@
 # Parallax
 
+[![CI](https://github.com/SingularityCoLabs/parallax/actions/workflows/ci.yml/badge.svg)](https://github.com/SingularityCoLabs/parallax/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A secure, extensible **agent runtime** with a CLI as its first interface. The model
 proposes actions; deterministic code validates, authorizes, and executes them.
 
@@ -10,7 +13,7 @@ proposes actions; deterministic code validates, authorizes, and executes them.
 
 ## Requirements
 
-- **Node.js ≥ 22.6** (uses native TypeScript type-stripping to run `.ts` directly,
+- **Node.js ≥ 22.18** (uses native TypeScript type-stripping to run `.ts` directly,
   and the built-in `node:sqlite`). Developed on Node 26.
 - **pnpm**.
 
@@ -27,15 +30,16 @@ real tools against a real workspace. Run the flagship "fix the failing test" flo
 against a throwaway copy of the fixture:
 
 ```bash
-# copy the fixture somewhere writable
-cp -r tests/fixtures/sum-project /tmp/sum && \
-  pnpm agent demo edit-fix --cwd /tmp/sum
+# copy the fixture into a fresh writable directory
+demo_workspace="$(mktemp -d)"
+cp -R tests/fixtures/sum-project/. "$demo_workspace"
+pnpm agent demo edit-fix --cwd "$demo_workspace"
 
 # non-interactive (auto-approve every side effect):
-pnpm agent demo edit-fix --cwd /tmp/sum -y
+pnpm agent demo edit-fix --cwd "$demo_workspace" -y
 
 # read-only mode — the runtime technically blocks the edit/shell:
-pnpm agent demo edit-fix --cwd /tmp/sum --read-only
+pnpm agent demo edit-fix --cwd "$demo_workspace" --read-only
 
 # list scenarios / sessions / replay a saved session:
 pnpm agent demo --list
@@ -58,7 +62,7 @@ pnpm format      # prettier
 ## What's here (v0.1)
 
 - Event-driven runtime with a strict turn loop: `model → validate → policy →
-  approval → execute → persist → model`.
+approval → execute → persist → model`.
 - Typed tool registry + Zod-validated inputs; unknown/invalid calls never execute.
 - Native filesystem tools (`read_file`, `list_directory`, `search_files`,
   `write_file`, `edit_file`) with workspace-scoping, symlink-escape denial, and
@@ -77,3 +81,16 @@ Real vendor provider adapter, context compaction, TUI, MCP / skills / hooks,
 browser & web tools, checkpoints/undo, subagents, and sandboxed executor backends.
 The interfaces (`ModelProvider`, `Executor`, `ToolRegistry`, `SessionStore`) are
 shaped so these slot in without reworking the runtime.
+
+## Community
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) to set up a development environment and
+  submit a change.
+- Follow the [Code of Conduct](.github/CODE_OF_CONDUCT.md) in project spaces.
+- Use the [support guide](.github/SUPPORT.md) for questions and ordinary bugs.
+- Report vulnerabilities privately by following the
+  [security policy](.github/SECURITY.md). Do not open a public security issue.
+
+## License
+
+Parallax is available under the [MIT License](LICENSE).

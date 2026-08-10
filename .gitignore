@@ -1,7 +1,11 @@
 node_modules/
 coverage/
+dist/
 *.log
 .DS_Store
 *.sqlite
 *.sqlite-*
 .parallax/
+.env
+.env.*
+!.env.example
