@@ -6,56 +6,105 @@
 A secure, extensible **agent runtime** with a CLI as its first interface. The model
 proposes actions; deterministic code validates, authorizes, and executes them.
 
-> Status: **v0.1** — a working single-agent loop with typed tools, deterministic
-> permissions, native file editing, shell execution, and durable sessions. Driven
-> by a deterministic **fake** model provider (no vendor SDK / API key required).
-> A real provider slots into the `ModelProvider` seam without touching the loop.
+> Status: **v0.1 beta** — a working single-agent loop with typed tools,
+> deterministic permissions, native file editing, shell execution, durable
+> sessions, and fake plus OpenAI-compatible model providers.
 
 ## Requirements
 
-- **Node.js ≥ 22.18** (uses native TypeScript type-stripping to run `.ts` directly,
-  and the built-in `node:sqlite`). Developed on Node 26.
-- **pnpm**.
+- **Node.js ≥ 22.18** (uses the built-in `node:sqlite`).
+- **pnpm** is required only when developing Parallax from source.
 
 ## Install
 
+Install the beta CLI globally:
+
 ```bash
-pnpm install
+npm install --global @singularitycolabs/parallax@next
+parallax --help
+```
+
+Or run it without a global installation:
+
+```bash
+npx --yes @singularitycolabs/parallax@next --help
+```
+
+Install the SDK in a Node.js project:
+
+```bash
+npm install @singularitycolabs/parallax@next
 ```
 
 ## Try it
 
 The fake provider ships scripted **demo** scenarios that drive the runtime through
 real tools against a real workspace. Run the flagship "fix the failing test" flow
-against a throwaway copy of the fixture:
+against a throwaway project:
 
 ```bash
-# copy the fixture into a fresh writable directory
 demo_workspace="$(mktemp -d)"
-cp -R tests/fixtures/sum-project/. "$demo_workspace"
-pnpm agent demo edit-fix --cwd "$demo_workspace"
+printf 'export const sum = (a, b) => a - b;\n' > "$demo_workspace/sum.mjs"
+printf "import assert from 'node:assert/strict';\nimport { sum } from './sum.mjs';\nassert.equal(sum(2, 3), 5);\n" > "$demo_workspace/test.mjs"
+parallax demo edit-fix --cwd "$demo_workspace"
 
 # non-interactive (auto-approve every side effect):
-pnpm agent demo edit-fix --cwd "$demo_workspace" -y
+parallax demo edit-fix --cwd "$demo_workspace" -y
 
 # read-only mode — the runtime technically blocks the edit/shell:
-pnpm agent demo edit-fix --cwd "$demo_workspace" --read-only
+parallax demo edit-fix --cwd "$demo_workspace" --read-only
 
 # list scenarios / sessions / replay a saved session:
-pnpm agent demo --list
-pnpm agent sessions
-pnpm agent resume <sessionId>
+parallax demo --list
+parallax sessions
+parallax resume <sessionId>
 ```
 
 You approve each side effect (shell command, file edit) at the prompt; edits show a
 diff first. Sessions persist to `~/.parallax/sessions.sqlite` unless `--no-persist`.
 
+## Use a real model (NVIDIA NIM)
+
+NVIDIA NIM exposes an **OpenAI-compatible** API, so Parallax drives it through a
+generic OpenAI-compatible adapter (configurable base URL). Get a key at
+[build.nvidia.com](https://build.nvidia.com) (it starts with `nvapi-`), then:
+
+```bash
+export PARALLAX_PROVIDER=nvidia
+export NVIDIA_API_KEY=nvapi-...
+
+# one-shot goal (approvals prompted; -y to auto-approve, --read-only to sandbox):
+parallax run "Inspect this repo, run its tests, fix the failing one, and verify."
+
+# interactive REPL (Ctrl-C cancels the in-flight turn; empty line / "exit" quits):
+parallax chat
+
+# pick a different tool-calling model:
+parallax run "summarize package.json" -m nvidia/llama-3.1-nemotron-70b-instruct
+```
+
+Config resolves as `CLI flag > env > built-in default`:
+
+| Variable                              | Purpose                    | Default                               |
+| ------------------------------------- | -------------------------- | ------------------------------------- |
+| `PARALLAX_PROVIDER`                   | `fake` or `nvidia`         | `fake`                                |
+| `NVIDIA_API_KEY` / `PARALLAX_API_KEY` | API key                    | —                                     |
+| `PARALLAX_MODEL` (or `-m`)            | model id                   | `meta/llama-3.3-70b-instruct`         |
+| `PARALLAX_API_BASE_URL`               | OpenAI-compatible endpoint | `https://integrate.api.nvidia.com/v1` |
+
+The provider is a drop-in `ModelProvider` — the runtime, tools, policy, and CLI are
+unchanged whether the model is fake or real. Any other OpenAI-compatible endpoint
+(vLLM, Ollama's `/v1`, etc.) works by pointing `PARALLAX_API_BASE_URL` at it.
+
 ## Develop
 
 ```bash
+pnpm install
 pnpm typecheck   # tsc --noEmit (strict)
 pnpm lint        # eslint incl. architectural import-boundary rules
 pnpm test        # vitest — no live APIs, temp dirs only
+pnpm build       # emit the publishable ESM package to dist/
+pnpm test:package # pack, install, and test the CLI + SDK as a consumer
 pnpm format      # prettier
 ```
 
@@ -71,14 +120,15 @@ approval → execute → persist → model`.
   process-group cleanup.
 - Deterministic `ALLOW / ASK / DENY` policy with `read-only` and `workspace` modes.
 - SQLite session persistence + resume.
-- A fake, scriptable model provider for deterministic tests and demos.
+- A fake, scriptable model provider for deterministic tests and demos, plus an
+  OpenAI-compatible provider (NVIDIA NIM) for real inference.
 
 See [docs/architecture.md](docs/architecture.md) and [docs/security.md](docs/security.md).
 
 ## Not in v0.1 (designed-for extension points)
 
-Real vendor provider adapter, context compaction, TUI, MCP / skills / hooks,
-browser & web tools, checkpoints/undo, subagents, and sandboxed executor backends.
+Context compaction, TUI, MCP / skills / hooks, browser & web tools,
+checkpoints/undo, subagents, and sandboxed executor backends.
 The interfaces (`ModelProvider`, `Executor`, `ToolRegistry`, `SessionStore`) are
 shaped so these slot in without reworking the runtime.
 

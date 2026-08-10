@@ -9,3 +9,9 @@ export {
   modelFinal,
   type FakeStep,
 } from './fake/FakeModelProvider.ts';
+export {
+  OpenAiCompatibleProvider,
+  ProviderHttpError,
+  type OpenAiCompatibleOptions,
+  type FetchLike,
+} from './openai/OpenAiCompatibleProvider.ts';

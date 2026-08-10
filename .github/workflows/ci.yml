@@ -15,9 +15,19 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate on Node.js 22
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: Validate on ${{ matrix.os }} / Node.js ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: 22.18.0
+          - os: ubuntu-latest
+            node: 24
+          - os: macos-latest
+            node: 24
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,20 +41,17 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22.18.0
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting
-        run: pnpm format:check
+      - name: Verify source
+        run: pnpm verify
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Build package
+        run: pnpm build
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Test
-        run: pnpm test
+      - name: Test packed artifact
+        run: pnpm test:package

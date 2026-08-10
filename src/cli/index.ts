@@ -4,14 +4,23 @@ import { Command } from 'commander';
 import { runDemo, listScenarios, listPersistedSessions, replaySession } from '../app/index.ts';
 import { loadConfig, databasePath } from '../config/index.ts';
 import type { ApprovalDecision } from '../protocol/index.ts';
+import { VERSION } from '../version.ts';
 import { CliRenderer } from './renderer.ts';
+import { runGoal, chatLoop, type AgentCliOptions } from './agentRunner.ts';
+
+// Convenience: load ./.env (e.g. NVIDIA_API_KEY) if present. Node 20.6+ built-in.
+try {
+  process.loadEnvFile();
+} catch {
+  /* no .env file — fine */
+}
 
 const program = new Command();
 
 program
   .name('parallax')
   .description('A secure, extensible agent runtime with a CLI as its first interface.')
-  .version('0.1.0');
+  .version(VERSION);
 
 program
   .command('demo')
@@ -77,6 +86,45 @@ program
       }
     },
   );
+
+const withAgentOptions = (cmd: Command): Command =>
+  cmd
+    .option('-C, --cwd <dir>', 'workspace directory', process.cwd())
+    .option('-m, --model <model>', 'model id (overrides provider default)')
+    .option('--read-only', 'run in read-only permission mode', false)
+    .option('-y, --yes', 'auto-approve all side effects (non-interactive)', false)
+    .option('--no-persist', 'do not persist the session to SQLite');
+
+interface RawAgentOpts {
+  cwd: string;
+  model?: string;
+  readOnly: boolean;
+  yes: boolean;
+  persist: boolean;
+}
+
+const toAgentOptions = (o: RawAgentOpts): AgentCliOptions => ({
+  cwd: o.cwd,
+  readOnly: o.readOnly,
+  yes: o.yes,
+  persist: o.persist,
+  ...(o.model !== undefined ? { model: o.model } : {}),
+});
+
+withAgentOptions(
+  program
+    .command('run')
+    .argument('<goal...>', 'the goal for the agent to accomplish')
+    .description('Run a single goal to completion using the configured model provider.'),
+).action(async (goalParts: string[], opts: RawAgentOpts) => {
+  await runGoal(goalParts.join(' '), toAgentOptions(opts));
+});
+
+withAgentOptions(
+  program.command('chat').description('Interactive REPL against the configured model provider.'),
+).action(async (opts: RawAgentOpts) => {
+  await chatLoop(toAgentOptions(opts));
+});
 
 program
   .command('sessions')

@@ -1,4 +1,4 @@
-import type { Config } from '../config/index.ts';
+import { effectiveModel, type Config } from '../config/index.ts';
 import { ContextBuilder } from '../context/index.ts';
 import { getLogger } from '../observability/index.ts';
 import { PolicyEngine } from '../policy/index.ts';
@@ -47,7 +47,7 @@ export function createRuntime(options: CreateRuntimeOptions): RuntimeFacade {
     policy,
     contextBuilder,
     store: options.store,
-    defaultModel: config.defaultModel,
+    defaultModel: effectiveModel(config),
     maxSteps: config.maxSteps,
     logger: getLogger(),
     ...(options.approvalAutoDenyMs !== undefined
