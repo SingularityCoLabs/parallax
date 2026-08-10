@@ -7,12 +7,7 @@ import { createWriteFileTool } from './writeFile.ts';
 import { createEditFileTool } from './editFile.ts';
 
 export { resolveWorkspacePath, canonicalizeRoot, type ResolvedPath } from './paths.ts';
-export {
-  FileStateCache,
-  fingerprintFrom,
-  hashContent,
-  type FileFingerprint,
-} from './fileState.ts';
+export { FileStateCache, fingerprintFrom, hashContent, type FileFingerprint } from './fileState.ts';
 export { createReadFileTool, type ReadFileDeps } from './readFile.ts';
 export { createListDirectoryTool, type ListDirectoryDeps } from './listDirectory.ts';
 export { createSearchFilesTool, type SearchFilesDeps } from './searchFiles.ts';

@@ -42,7 +42,9 @@ describe('E2E: run → shell → edit → shell → final (blueprint §35)', () 
 
     // The workflow shape: two shell runs and one edit, each approved.
     const shellStarts = events.filter((e) => e.type === 'tool.started' && e.toolName === 'shell');
-    const editStarts = events.filter((e) => e.type === 'tool.started' && e.toolName === 'edit_file');
+    const editStarts = events.filter(
+      (e) => e.type === 'tool.started' && e.toolName === 'edit_file',
+    );
     expect(shellStarts).toHaveLength(2);
     expect(editStarts).toHaveLength(1);
 
@@ -64,9 +66,7 @@ describe('E2E: run → shell → edit → shell → final (blueprint §35)', () 
     // Approval precedes execution for every gated call.
     for (const start of [...shellStarts, ...editStarts]) {
       const idxStart = events.indexOf(start);
-      const priorResolved = events
-        .slice(0, idxStart)
-        .filter((e) => e.type === 'approval.resolved');
+      const priorResolved = events.slice(0, idxStart).filter((e) => e.type === 'approval.resolved');
       expect(priorResolved.length).toBeGreaterThan(0);
     }
 
@@ -119,7 +119,8 @@ describe('E2E: run → shell → edit → shell → final (blueprint §35)', () 
 describe('architecture: the CLI executes no tools (blueprint Principle 2, §39)', () => {
   it('CLI source imports only app/protocol/config layers', () => {
     const cliFiles = ['index.ts', 'renderer.ts', 'approvalPrompt.ts'];
-    const forbidden = /from '\.\.\/(providers|tools|policy|executor|sessions|runtime|context|observability)\//;
+    const forbidden =
+      /from '\.\.\/(providers|tools|policy|executor|sessions|runtime|context|observability)\//;
     for (const file of cliFiles) {
       const src = readFileSync(join(here, '..', 'src', 'cli', file), 'utf8');
       expect(forbidden.test(src), `${file} must not import runtime internals`).toBe(false);

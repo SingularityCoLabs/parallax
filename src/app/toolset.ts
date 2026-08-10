@@ -34,9 +34,7 @@ export function defaultToolset(config: Config): {
       }),
     );
     registry.register(createWriteFileTool({ fileState }));
-    registry.register(
-      createEditFileTool({ fileState, maxDiffChars: config.maxToolResultChars }),
-    );
+    registry.register(createEditFileTool({ fileState, maxDiffChars: config.maxToolResultChars }));
     registry.register(
       createShellTool({
         executor,

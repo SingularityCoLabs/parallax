@@ -1,8 +1,4 @@
-import {
-  PROTOCOL_VERSION,
-  type EmittedEvent,
-  type RuntimeEvent,
-} from '../protocol/index.ts';
+import { PROTOCOL_VERSION, type EmittedEvent, type RuntimeEvent } from '../protocol/index.ts';
 import type { SessionStore } from '../sessions/index.ts';
 
 export type EventListener = (event: RuntimeEvent) => void;

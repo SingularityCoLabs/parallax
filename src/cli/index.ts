@@ -1,12 +1,7 @@
 #!/usr/bin/env node
 import { createInterface } from 'node:readline/promises';
 import { Command } from 'commander';
-import {
-  runDemo,
-  listScenarios,
-  listPersistedSessions,
-  replaySession,
-} from '../app/index.ts';
+import { runDemo, listScenarios, listPersistedSessions, replaySession } from '../app/index.ts';
 import { loadConfig, databasePath } from '../config/index.ts';
 import type { ApprovalDecision } from '../protocol/index.ts';
 import { CliRenderer } from './renderer.ts';
@@ -51,9 +46,14 @@ program
         ? undefined
         : createInterface({ input: process.stdin, output: process.stderr, terminal: false });
 
-      const onApproval = async (request: { id: string; title: string }): Promise<ApprovalDecision> => {
+      const onApproval = async (request: {
+        id: string;
+        title: string;
+      }): Promise<ApprovalDecision> => {
         if (opts.yes) return 'allow_once';
-        const answer = (await rl!.question(`    Allow "${request.title}"? [y/N] `)).trim().toLowerCase();
+        const answer = (await rl!.question(`    Allow "${request.title}"? [y/N] `))
+          .trim()
+          .toLowerCase();
         return answer === 'y' || answer === 'yes' ? 'allow_once' : 'deny';
       };
 
@@ -68,7 +68,9 @@ program
           onApproval,
         });
         if (opts.persist) {
-          process.stdout.write(`\nSession ${sessionId} saved. Replay: parallax resume ${sessionId}\n`);
+          process.stdout.write(
+            `\nSession ${sessionId} saved. Replay: parallax resume ${sessionId}\n`,
+          );
         }
       } finally {
         rl?.close();

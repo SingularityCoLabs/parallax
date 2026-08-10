@@ -101,8 +101,7 @@ export class SqliteSessionStore implements SessionStore {
 
   getSession(id: string): Promise<SessionRecord | undefined> {
     const row = this.db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as
-      | SessionRow
-      | undefined;
+      SessionRow | undefined;
     return Promise.resolve(row ? this.mapSession(row) : undefined);
   }
 
@@ -293,9 +292,7 @@ export class SqliteSessionStore implements SessionStore {
       createdAt: row.created_at,
     };
     if (row.tool_calls_json) {
-      record.toolCalls = JSON.parse(row.tool_calls_json) as NonNullable<
-        MessageRecord['toolCalls']
-      >;
+      record.toolCalls = JSON.parse(row.tool_calls_json) as NonNullable<MessageRecord['toolCalls']>;
     }
     if (row.tool_call_id !== null) record.toolCallId = row.tool_call_id;
     return record;

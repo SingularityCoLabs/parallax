@@ -93,7 +93,7 @@ TUI or headless JSON client all consume this one stream.
 ## State vs. context
 
 Durable history (all messages, tool calls, events, approvals) lives in the
-`SessionStore`. The **context** the model sees is a *bounded projection* built each
+`SessionStore`. The **context** the model sees is a _bounded projection_ built each
 step: fixed system prompt + recent messages + tool schemas + truncated tool results.
 Compaction never destroys persisted history — it only changes the model-visible view.
 

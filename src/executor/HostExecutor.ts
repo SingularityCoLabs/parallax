@@ -1,5 +1,11 @@
 import { spawn } from 'node:child_process';
-import type { Executor, EnvironmentPolicy, ProcessRequest, ProcessResult, ProcessExitReason } from './Executor.ts';
+import type {
+  Executor,
+  EnvironmentPolicy,
+  ProcessRequest,
+  ProcessResult,
+  ProcessExitReason,
+} from './Executor.ts';
 import { InheritedEnvironmentPolicy } from './EnvironmentPolicy.ts';
 
 const KILL_GRACE_MS = 2000;

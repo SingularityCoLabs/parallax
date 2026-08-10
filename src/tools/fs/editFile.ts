@@ -159,14 +159,9 @@ export function createEditFileTool(deps: EditFileDeps): ToolDefinition<Input, Ou
         diff: truncateMiddle(diff.preview, { maxChars: deps.maxDiffChars }).text,
       };
       return Promise.resolve(
-        ok(
-          ctx.callId,
-          `edited ${input.path} (+${diff.added} -${diff.removed})`,
-          output,
-          {
-            modelContent: `Edited ${input.path}: ${output.replacements} replacement(s), +${diff.added} -${diff.removed} lines.`,
-          },
-        ),
+        ok(ctx.callId, `edited ${input.path} (+${diff.added} -${diff.removed})`, output, {
+          modelContent: `Edited ${input.path}: ${output.replacements} replacement(s), +${diff.added} -${diff.removed} lines.`,
+        }),
       );
     },
   };

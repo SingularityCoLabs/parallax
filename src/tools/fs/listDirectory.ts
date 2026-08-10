@@ -107,9 +107,7 @@ export function createListDirectoryTool(deps: ListDirectoryDeps): ToolDefinition
       walk(rp.real, 1);
 
       const output: Output = { root: input.path, entries, truncated };
-      const lines = entries
-        .map((e) => (e.type === 'directory' ? `${e.path}/` : e.path))
-        .join('\n');
+      const lines = entries.map((e) => (e.type === 'directory' ? `${e.path}/` : e.path)).join('\n');
       return Promise.resolve(
         ok(ctx.callId, `listed ${entries.length} entries in ${input.path}`, output, {
           truncated,

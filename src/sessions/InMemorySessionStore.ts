@@ -51,9 +51,7 @@ export class InMemorySessionStore implements SessionStore {
   }
 
   listSessions(): Promise<SessionRecord[]> {
-    return Promise.resolve(
-      [...this.sessions.values()].sort((a, b) => b.updatedAt - a.updatedAt),
-    );
+    return Promise.resolve([...this.sessions.values()].sort((a, b) => b.updatedAt - a.updatedAt));
   }
 
   setSessionStatus(id: string, status: SessionStatus): Promise<void> {

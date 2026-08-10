@@ -7,11 +7,7 @@ import type { EnvironmentPolicy } from './Executor.ts';
  * It already strips a few obvious agent-provider secrets so a spawned command
  * cannot trivially read them from `process.env`.
  */
-const STRIPPED = [
-  'ANTHROPIC_API_KEY',
-  'OPENAI_API_KEY',
-  'PARALLAX_DB',
-];
+const STRIPPED = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'PARALLAX_DB'];
 
 export class InheritedEnvironmentPolicy implements EnvironmentPolicy {
   buildEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

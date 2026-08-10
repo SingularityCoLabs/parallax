@@ -85,8 +85,18 @@ describe('SqliteSessionStore', () => {
 
   it('lists sessions most-recently-updated first', async () => {
     const store = new SqliteSessionStore(dbPath);
-    const a = await store.createSession({ cwd: '/a', provider: 'fake', model: 'm', permissionMode: 'workspace' });
-    const b = await store.createSession({ cwd: '/b', provider: 'fake', model: 'm', permissionMode: 'workspace' });
+    const a = await store.createSession({
+      cwd: '/a',
+      provider: 'fake',
+      model: 'm',
+      permissionMode: 'workspace',
+    });
+    const b = await store.createSession({
+      cwd: '/b',
+      provider: 'fake',
+      model: 'm',
+      permissionMode: 'workspace',
+    });
     // Touch a so it becomes most-recent.
     await store.appendEvent({
       v: PROTOCOL_VERSION,

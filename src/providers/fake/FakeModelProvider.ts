@@ -12,7 +12,10 @@ export function modelText(text: string): ModelEvent {
 }
 
 export function modelToolCall(name: string, args: unknown, id?: string): ModelEvent {
-  return { type: 'tool_call.completed', call: { id: id ?? newToolCallId(), name, arguments: args } };
+  return {
+    type: 'tool_call.completed',
+    call: { id: id ?? newToolCallId(), name, arguments: args },
+  };
 }
 
 export function modelUsage(inputTokens?: number, outputTokens?: number): ModelEvent {

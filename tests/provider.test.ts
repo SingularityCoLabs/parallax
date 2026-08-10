@@ -43,7 +43,9 @@ describe('FakeModelProvider', () => {
       [modelText('done'), modelFinal()],
     ]);
     await collect(p.stream(req, new AbortController().signal));
-    const second = await collect(p.stream({ ...req, system: 'again' }, new AbortController().signal));
+    const second = await collect(
+      p.stream({ ...req, system: 'again' }, new AbortController().signal),
+    );
     expect(second.some((e) => e.type === 'text.delta' && e.text === 'done')).toBe(true);
     expect(p.calls).toBe(2);
     expect(p.requests.map((r) => r.system)).toEqual(['sys', 'again']);

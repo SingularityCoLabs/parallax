@@ -1,9 +1,4 @@
-import {
-  modelText,
-  modelToolCall,
-  modelFinal,
-  type FakeStep,
-} from '../providers/index.ts';
+import { modelText, modelToolCall, modelFinal, type FakeStep } from '../providers/index.ts';
 
 /**
  * Scripted demo workflows for the fake provider (blueprint §11.5, §33–§36).
@@ -31,7 +26,9 @@ const inspect: DemoScenario = {
     ],
     [modelToolCall('read_file', { path: 'sum.mjs' }, 'r1')],
     [
-      modelText('This is a tiny Node project: `sum.mjs` exports a `sum` function and `test.mjs` asserts it.'),
+      modelText(
+        'This is a tiny Node project: `sum.mjs` exports a `sum` function and `test.mjs` asserts it.',
+      ),
       modelFinal(),
     ],
   ],

@@ -40,9 +40,7 @@ export function createWriteFileTool(deps: WriteFileDeps): ToolDefinition<Input, 
       const rp = resolveWorkspacePath(ctx.workspaceRoot, input.path);
       const existing = rp.exists ? (readIfExists(rp.real) ?? '') : undefined;
       const diff =
-        existing !== undefined
-          ? lineDiff(existing, input.content)
-          : lineDiff('', input.content);
+        existing !== undefined ? lineDiff(existing, input.content) : lineDiff('', input.content);
       return Promise.resolve({
         title: existing !== undefined ? `Overwrite ${input.path}` : `Create ${input.path}`,
         detail: `+${diff.added} -${diff.removed} lines`,

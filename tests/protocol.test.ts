@@ -8,7 +8,13 @@ import {
 import { newSessionId, newTurnId, newToolCallId } from '../src/protocol/ids.ts';
 
 function stamp<T extends { type: string }>(e: T): RuntimeEvent {
-  return { v: PROTOCOL_VERSION, seq: 0, sessionId: 's', timestamp: 1, ...e } as unknown as RuntimeEvent;
+  return {
+    v: PROTOCOL_VERSION,
+    seq: 0,
+    sessionId: 's',
+    timestamp: 1,
+    ...e,
+  } as unknown as RuntimeEvent;
 }
 
 describe('protocol events', () => {

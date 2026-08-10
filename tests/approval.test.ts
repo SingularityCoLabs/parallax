@@ -5,7 +5,12 @@ import { join } from 'node:path';
 import { createRuntime } from '../src/app/index.ts';
 import { defaultConfig } from '../src/config/index.ts';
 import { InMemorySessionStore } from '../src/sessions/index.ts';
-import { FakeModelProvider, modelText, modelToolCall, type FakeStep } from '../src/providers/index.ts';
+import {
+  FakeModelProvider,
+  modelText,
+  modelToolCall,
+  type FakeStep,
+} from '../src/providers/index.ts';
 import { FileStateCache, createFsReadTools, createFsWriteTools } from '../src/tools/fs/index.ts';
 import type { RuntimeEvent } from '../src/protocol/index.ts';
 import type { RuntimeFacade } from '../src/runtime/index.ts';
@@ -66,7 +71,13 @@ describe('approval flow at the runtime level', () => {
     const h = harness(
       [
         [modelToolCall('read_file', { path: 'src/app.ts' }, 'r1')],
-        [modelToolCall('edit_file', { path: 'src/app.ts', oldText: 'x = 1', newText: 'x = 2' }, 'e1')],
+        [
+          modelToolCall(
+            'edit_file',
+            { path: 'src/app.ts', oldText: 'x = 1', newText: 'x = 2' },
+            'e1',
+          ),
+        ],
         [modelText('done')],
       ],
       'allow_once',
@@ -88,7 +99,13 @@ describe('approval flow at the runtime level', () => {
     const h = harness(
       [
         [modelToolCall('read_file', { path: 'src/app.ts' }, 'r1')],
-        [modelToolCall('edit_file', { path: 'src/app.ts', oldText: 'x = 1', newText: 'x = 9' }, 'e1')],
+        [
+          modelToolCall(
+            'edit_file',
+            { path: 'src/app.ts', oldText: 'x = 1', newText: 'x = 9' },
+            'e1',
+          ),
+        ],
         [modelText('ok, skipped')],
       ],
       'deny',
@@ -96,7 +113,9 @@ describe('approval flow at the runtime level', () => {
     const session = await h.facade.createSession({ cwd: root, permissionMode: 'workspace' });
     await h.facade.startTurn(session.id, 'try edit');
 
-    expect(h.events.some((e) => e.type === 'tool.started' && e.toolName === 'edit_file')).toBe(false);
+    expect(h.events.some((e) => e.type === 'tool.started' && e.toolName === 'edit_file')).toBe(
+      false,
+    );
     const failed = h.events.find((e) => e.type === 'tool.failed');
     if (failed?.type === 'tool.failed') expect(failed.result.error?.code).toBe('approval_denied');
     expect(readFileSync(join(root, 'src', 'app.ts'), 'utf8')).toContain('x = 1');
@@ -105,7 +124,13 @@ describe('approval flow at the runtime level', () => {
   it('read-only mode technically blocks a write (deny, never asks)', async () => {
     const h = harness(
       [
-        [modelToolCall('write_file', { path: 'src/new.ts', content: 'export const z = 3;\n' }, 'w1')],
+        [
+          modelToolCall(
+            'write_file',
+            { path: 'src/new.ts', content: 'export const z = 3;\n' },
+            'w1',
+          ),
+        ],
         [modelText('cannot write in read-only')],
       ],
       'none',

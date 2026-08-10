@@ -95,10 +95,7 @@ describe('runtime turn loop', () => {
   it('enforces the max-steps guard and fails the turn', async () => {
     // Every step proposes a tool call and never finalizes.
     const h = harness(
-      [
-        [modelToolCall('echo', { text: '1' }, 'a')],
-        [modelToolCall('echo', { text: '2' }, 'b')],
-      ],
+      [[modelToolCall('echo', { text: '1' }, 'a')], [modelToolCall('echo', { text: '2' }, 'b')]],
       { maxSteps: 2 },
     );
     const session = await h.facade.createSession({ cwd: '/w', permissionMode: 'workspace' });

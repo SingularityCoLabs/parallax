@@ -131,14 +131,24 @@ describe('list_directory', () => {
 describe('search_files', () => {
   it('finds matches with path:line:text', async () => {
     const tool = createSearchFilesTool({ maxResults: 100, maxFileBytes: 100_000 });
-    const result = await tool.execute(ctx(), { path: '.', query: 'hello', regex: false, ignoreCase: false });
+    const result = await tool.execute(ctx(), {
+      path: '.',
+      query: 'hello',
+      regex: false,
+      ignoreCase: false,
+    });
     expect(result.ok).toBe(true);
     expect(result.modelContent).toMatch(/src\/app\.ts:1:/);
   });
 
   it('never returns matches from outside the workspace', async () => {
     const tool = createSearchFilesTool({ maxResults: 100, maxFileBytes: 100_000 });
-    const result = await tool.execute(ctx(), { path: '.', query: 'SECRET', regex: false, ignoreCase: false });
+    const result = await tool.execute(ctx(), {
+      path: '.',
+      query: 'SECRET',
+      regex: false,
+      ignoreCase: false,
+    });
     expect(result.modelContent).toBe('no matches');
   });
 });

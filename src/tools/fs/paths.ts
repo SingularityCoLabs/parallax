@@ -73,9 +73,7 @@ function realpathOfNearestExisting(absolute: string): { real: string; exists: bo
  */
 export function resolveWorkspacePath(workspaceRoot: string, requested: string): ResolvedPath {
   const canonicalRoot = canonicalizeRoot(workspaceRoot);
-  const absolute = isAbsolute(requested)
-    ? resolve(requested)
-    : resolve(canonicalRoot, requested);
+  const absolute = isAbsolute(requested) ? resolve(requested) : resolve(canonicalRoot, requested);
   const { real, exists } = realpathOfNearestExisting(absolute);
   const outsideWorkspace = !isWithin(canonicalRoot, real);
   return { requested, absolute, real, outsideWorkspace, exists };

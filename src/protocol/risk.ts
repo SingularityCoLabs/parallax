@@ -8,12 +8,7 @@ import { z } from 'zod';
  */
 export type ToolRisk = 'read' | 'write' | 'destructive' | 'network' | 'external_write';
 
-export type ResourceClass =
-  | 'pure_read'
-  | 'filesystem_write'
-  | 'shell'
-  | 'network'
-  | 'external';
+export type ResourceClass = 'pure_read' | 'filesystem_write' | 'shell' | 'network' | 'external';
 
 export const toolRiskSchema: z.ZodType<ToolRisk> = z.enum([
   'read',

@@ -77,8 +77,7 @@ export function createSearchFilesTool(deps: SearchFilesDeps): ToolDefinition<Inp
           matcher = (line) => re.test(line);
         } else {
           const needle = input.ignoreCase ? input.query.toLowerCase() : input.query;
-          matcher = (line) =>
-            (input.ignoreCase ? line.toLowerCase() : line).includes(needle);
+          matcher = (line) => (input.ignoreCase ? line.toLowerCase() : line).includes(needle);
         }
       } catch (err) {
         return Promise.resolve(

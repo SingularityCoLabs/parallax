@@ -30,23 +30,51 @@ interface Case {
 
 const cases: Case[] = [
   // Escapes always deny, regardless of mode/risk.
-  { name: 'escape read (workspace)', mode: 'workspace', risk: 'read', outsideWorkspace: true, expected: 'deny' },
-  { name: 'escape read (read-only)', mode: 'read-only', risk: 'read', outsideWorkspace: true, expected: 'deny' },
-  { name: 'escape write', mode: 'workspace', risk: 'write', outsideWorkspace: true, expected: 'deny' },
+  {
+    name: 'escape read (workspace)',
+    mode: 'workspace',
+    risk: 'read',
+    outsideWorkspace: true,
+    expected: 'deny',
+  },
+  {
+    name: 'escape read (read-only)',
+    mode: 'read-only',
+    risk: 'read',
+    outsideWorkspace: true,
+    expected: 'deny',
+  },
+  {
+    name: 'escape write',
+    mode: 'workspace',
+    risk: 'write',
+    outsideWorkspace: true,
+    expected: 'deny',
+  },
 
   // read-only mode: reads allowed, everything else denied.
   { name: 'read-only + read', mode: 'read-only', risk: 'read', expected: 'allow' },
   { name: 'read-only + write', mode: 'read-only', risk: 'write', expected: 'deny' },
   { name: 'read-only + destructive', mode: 'read-only', risk: 'destructive', expected: 'deny' },
   { name: 'read-only + network', mode: 'read-only', risk: 'network', expected: 'deny' },
-  { name: 'read-only + external_write', mode: 'read-only', risk: 'external_write', expected: 'deny' },
+  {
+    name: 'read-only + external_write',
+    mode: 'read-only',
+    risk: 'external_write',
+    expected: 'deny',
+  },
 
   // workspace mode: reads allowed, side effects ask.
   { name: 'workspace + read', mode: 'workspace', risk: 'read', expected: 'allow' },
   { name: 'workspace + write', mode: 'workspace', risk: 'write', expected: 'ask' },
   { name: 'workspace + destructive', mode: 'workspace', risk: 'destructive', expected: 'ask' },
   { name: 'workspace + network', mode: 'workspace', risk: 'network', expected: 'ask' },
-  { name: 'workspace + external_write', mode: 'workspace', risk: 'external_write', expected: 'ask' },
+  {
+    name: 'workspace + external_write',
+    mode: 'workspace',
+    risk: 'external_write',
+    expected: 'ask',
+  },
 ];
 
 describe('PolicyEngine decision table', () => {
@@ -80,7 +108,12 @@ describe('PolicyEngine decision table', () => {
 
   it('surfaces a destructive shell command in the approval detail', () => {
     const decision = engine.evaluate(
-      ctx({ risk: 'destructive', toolName: 'shell', command: 'rm -rf build', actionTitle: 'Run rm -rf build' }),
+      ctx({
+        risk: 'destructive',
+        toolName: 'shell',
+        command: 'rm -rf build',
+        actionTitle: 'Run rm -rf build',
+      }),
     );
     expect(decision.kind).toBe('ask');
     if (decision.kind === 'ask') {
@@ -89,9 +122,7 @@ describe('PolicyEngine decision table', () => {
   });
 
   it('passes a diff preview through to the approval request', () => {
-    const decision = engine.evaluate(
-      ctx({ risk: 'write', diffPreview: '- old\n+ new' }),
-    );
+    const decision = engine.evaluate(ctx({ risk: 'write', diffPreview: '- old\n+ new' }));
     if (decision.kind === 'ask') {
       expect(decision.approval.diffPreview).toBe('- old\n+ new');
     }

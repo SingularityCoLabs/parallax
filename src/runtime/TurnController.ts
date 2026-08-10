@@ -232,9 +232,7 @@ export class TurnController {
     const input = parsed.data as never;
 
     // 3. Describe/normalize the action (resolves paths, builds diff preview).
-    const descriptor = tool.describe
-      ? await tool.describe(toolCtx, input)
-      : { title: tool.name };
+    const descriptor = tool.describe ? await tool.describe(toolCtx, input) : { title: tool.name };
 
     // 4. Deterministic policy decision.
     const decision = this.d.policy.evaluate({
@@ -328,11 +326,7 @@ export class TurnController {
     await this.emit(ctx, { type: 'tool.failed', turnId: ctx.turnId, result });
   }
 
-  private async persistResult(
-    ctx: TurnContext,
-    call: ToolCall,
-    result: ToolResult,
-  ): Promise<void> {
+  private async persistResult(ctx: TurnContext, call: ToolCall, result: ToolResult): Promise<void> {
     await this.d.store.appendMessage({
       sessionId: ctx.sessionId,
       turnId: ctx.turnId,

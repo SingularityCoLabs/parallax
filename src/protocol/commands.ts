@@ -33,7 +33,4 @@ export interface ResolveApprovalCommand {
 }
 
 export type RuntimeCommand =
-  | CreateSessionCommand
-  | StartTurnCommand
-  | CancelTurnCommand
-  | ResolveApprovalCommand;
+  CreateSessionCommand | StartTurnCommand | CancelTurnCommand | ResolveApprovalCommand;
