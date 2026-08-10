@@ -40,7 +40,7 @@
   "scripts": {
     "agent": "node src/cli/index.ts",
     "clean": "node scripts/clean-dist.mjs",
-    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "build": "pnpm clean && tsc -p tsconfig.build.json && node scripts/make-bin-executable.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
