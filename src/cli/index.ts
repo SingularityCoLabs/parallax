@@ -7,6 +7,7 @@ import type { ApprovalDecision } from '../protocol/index.ts';
 import { VERSION } from '../version.ts';
 import { CliRenderer } from './renderer.ts';
 import { runGoal, chatLoop, type AgentCliOptions } from './agentRunner.ts';
+import { runUninstall } from './uninstallRunner.ts';
 
 // Convenience: load ./.env (e.g. NVIDIA_API_KEY) if present. Node 20.6+ built-in.
 try {
@@ -125,6 +126,16 @@ withAgentOptions(
 ).action(async (opts: RawAgentOpts) => {
   await chatLoop(toAgentOptions(opts));
 });
+
+program
+  .command('uninstall')
+  .description("Remove Parallax's stored data and print how to remove the CLI.")
+  .option('--dry-run', 'list what would be removed, delete nothing', false)
+  .option('-y, --yes', 'skip the confirmation prompt (non-interactive)', false)
+  .option('--keep-data', 'keep sessions/state; only print how to remove the CLI', false)
+  .action(async (opts: { dryRun: boolean; yes: boolean; keepData: boolean }) => {
+    await runUninstall(opts);
+  });
 
 program
   .command('sessions')

@@ -24,10 +24,18 @@ assert.equal(typeof expectedVersion, 'string');
 assert.notEqual(manifest.private, true, 'published package must not be private');
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const temporaryRoot = mkdtempSync(join(tmpdir(), 'parallax-package-test-'));
+const packedDirectory = join(temporaryRoot, 'packed');
+const consumerDirectory = join(temporaryRoot, 'consumer');
+mkdirSync(packedDirectory);
+mkdirSync(consumerDirectory);
+
 const npmEnvironment = {
   ...process.env,
   CI: process.env.CI ?? '1',
   NO_COLOR: '1',
+  // Keep every CLI invocation out of the developer's real ~/.parallax.
+  PARALLAX_HOME: join(temporaryRoot, 'parallax-home-default'),
   npm_config_audit: 'false',
   npm_config_dry_run: 'false',
   npm_config_fund: 'false',
@@ -59,14 +67,8 @@ function run(command, args, { cwd = projectRoot, capture = false, env = process.
 }
 
 function runNpm(args, options = {}) {
-  return run(npmCommand, args, { ...options, env: npmEnvironment });
+  return run(npmCommand, args, { ...options, env: { ...npmEnvironment, ...options.env } });
 }
-
-const temporaryRoot = mkdtempSync(join(tmpdir(), 'parallax-package-test-'));
-const packedDirectory = join(temporaryRoot, 'packed');
-const consumerDirectory = join(temporaryRoot, 'consumer');
-mkdirSync(packedDirectory);
-mkdirSync(consumerDirectory);
 
 try {
   // `--dry-run=false` matters when reached through `npm publish --dry-run`.
@@ -143,6 +145,28 @@ assert.equal(sum(2, 3), 5);
   assert.match(demo.stdout, /tests now pass/i);
   assert.match(readFileSync(join(demoDirectory, 'sum.mjs'), 'utf8'), /=> a \+ b/);
 
+  // `uninstall` must recognize that it is running from an installed package and
+  // name the real package in its removal command — a source checkout says
+  // something different, so only the packaged artifact can verify this.
+  const parallaxHome = join(consumerDirectory, 'parallax-home');
+  const cliWithHome = (args) =>
+    runNpm(['exec', '--offline', '--', 'parallax', ...args], {
+      cwd: consumerDirectory,
+      capture: true,
+      env: { PARALLAX_HOME: parallaxHome },
+    });
+
+  const dryRun = cliWithHome(['uninstall', '--dry-run']);
+  assert.match(dryRun.stdout, new RegExp(`npm uninstall --global ${packageName}`));
+  assert.ok(!existsSync(parallaxHome), 'uninstall --dry-run created state it should not have');
+
+  // Produce real state, then confirm the command removes it.
+  cliWithHome(['demo', 'inspect', '--cwd', demoDirectory, '--yes']);
+  assert.ok(existsSync(join(parallaxHome, 'sessions.sqlite')), 'demo did not persist a session');
+  const uninstalled = cliWithHome(['uninstall', '--yes']);
+  assert.match(uninstalled.stdout, /Removed /);
+  assert.ok(!existsSync(parallaxHome), 'uninstall left state behind');
+
   const packageSpecifier = JSON.stringify(packageName);
   writeFileSync(
     join(consumerDirectory, 'sdk-runtime.mjs'),
@@ -167,6 +191,7 @@ process.stdout.write('sdk-runtime-ok\\n');
     run(process.execPath, ['sdk-runtime.mjs'], {
       cwd: consumerDirectory,
       capture: true,
+      env: npmEnvironment,
     }).stdout,
     /sdk-runtime-ok/,
   );

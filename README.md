@@ -38,6 +38,29 @@ Install the SDK in a Node.js project:
 npm install @singularitycolabs/parallax@next
 ```
 
+## Uninstall
+
+Parallax keeps its state in `~/.parallax` (sessions database). The CLI can clean
+that up and tell you how to remove the binary:
+
+```bash
+parallax uninstall --dry-run   # list exactly what would be deleted, delete nothing
+parallax uninstall             # prompts before deleting; prints the removal command
+parallax uninstall -y          # non-interactive
+parallax uninstall --keep-data # keep your sessions; just print the removal command
+```
+
+Removing the package itself is left to the package manager you installed it with,
+since the CLI can't know which one that was:
+
+```bash
+npm uninstall --global @singularitycolabs/parallax
+```
+
+`PARALLAX_HOME` and `PARALLAX_DB` are honored, so a relocated database is found
+and removed too. Deletion refuses to touch your home directory, the current
+directory, or a filesystem root regardless of how those variables are set.
+
 ## Try it
 
 The fake provider ships scripted **demo** scenarios that drive the runtime through
