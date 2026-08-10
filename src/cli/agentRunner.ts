@@ -1,8 +1,13 @@
 import { createInterface, type Interface } from 'node:readline/promises';
-import { createAgent, providerSupportsChat, displayModel, type Agent } from '../app/index.ts';
+import { createAgent, providerSupportsChat, MissingApiKeyError, type Agent } from '../app/index.ts';
 import { loadConfig, databasePath, type Config } from '../config/index.ts';
 import type { ApprovalDecision, PermissionMode } from '../protocol/index.ts';
 import { CliRenderer } from './renderer.ts';
+import {
+  SetupRequiredError,
+  noProviderConfiguredMessage,
+  missingKeyMessage,
+} from './setupGuidance.ts';
 
 export interface AgentCliOptions {
   cwd: string;
@@ -55,12 +60,24 @@ function wire(
 
 function ensureChatCapable(config: Config): void {
   if (!providerSupportsChat(config)) {
-    throw new Error(
-      'The fake provider cannot handle free-form goals. Set a real provider, e.g.:\n' +
-        '  export PARALLAX_PROVIDER=nvidia\n' +
-        '  export NVIDIA_API_KEY=nvapi-...\n' +
-        'Then retry, or use `parallax demo` for scripted workflows.',
-    );
+    throw new SetupRequiredError(noProviderConfiguredMessage());
+  }
+}
+
+/**
+ * Build the agent, converting a missing API key into actionable setup guidance.
+ * `createAgent` resolves the key from the environment, so this is the first point
+ * where a misconfigured install is detected.
+ */
+function buildAgent(config: Config, options: AgentCliOptions): Agent {
+  try {
+    return createAgent({ config, ...(options.persist ? { dbPath: databasePath() } : {}) });
+  } catch (err) {
+    if (err instanceof MissingApiKeyError) {
+      const envVar = config.provider === 'nvidia' ? 'NVIDIA_API_KEY' : 'PARALLAX_API_KEY';
+      throw new SetupRequiredError(missingKeyMessage(config.provider, envVar));
+    }
+    throw err;
   }
 }
 
@@ -74,7 +91,7 @@ export async function runGoal(goal: string, options: AgentCliOptions): Promise<v
   const rl = options.yes
     ? undefined
     : createInterface({ input: process.stdin, output: process.stderr, terminal: false });
-  const agent = createAgent({ config, ...(options.persist ? { dbPath: databasePath() } : {}) });
+  const agent = buildAgent(config, options);
   const unsubscribe = wire(agent, renderer, makeApprovalHandler(options.yes, rl), () => {});
 
   try {
@@ -100,30 +117,40 @@ export async function chatLoop(options: AgentCliOptions): Promise<void> {
 
   const renderer = new CliRenderer();
   const rl = createInterface({ input: process.stdin, output: process.stderr });
-  const agent = createAgent({ config, ...(options.persist ? { dbPath: databasePath() } : {}) });
+  const agent = buildAgent(config, options);
 
   let activeTurn: string | undefined;
   const unsubscribe = wire(agent, renderer, makeApprovalHandler(options.yes, rl), (t) => {
     activeTurn = t;
   });
 
+  // `session.started` already renders provider/model/mode/cwd; just add the keys.
   const session = await agent.facade.createSession({ cwd: options.cwd, permissionMode: mode });
   process.stderr.write(
-    `parallax chat · ${config.provider}:${displayModel(config)} · ${mode} · ${options.cwd}\n` +
-      `Type a goal and press enter. Ctrl-C cancels a turn; empty line or "exit" quits.\n`,
+    'Type a goal and press enter. Ctrl-C cancels a turn (or quits at the prompt); ' +
+      '"exit" or Ctrl-D quits.\n',
   );
 
   const onSigint = (): void => {
     if (activeTurn) {
       process.stderr.write('\n[cancelling…]\n');
       agent.facade.cancelTurn(session.id, activeTurn);
+      return;
     }
+    // Nothing in flight: Ctrl-C at the prompt should quit, as the shell default
+    // would. Closing the readline rejects the pending question, ending the loop.
+    process.stderr.write('\n');
+    rl.close();
   };
   process.on('SIGINT', onSigint);
 
   try {
     for (;;) {
-      const line = (await rl.question('\n> ')).trim();
+      // A closed stdin (Ctrl-D, Ctrl-C at the prompt, or piped input running
+      // out) rejects the pending question — that is a clean exit, not an error.
+      const answer = await rl.question('\n> ').catch(() => undefined);
+      if (answer === undefined) break;
+      const line = answer.trim();
       if (line === '' || line === 'exit' || line === 'quit') break;
       await agent.facade.startTurn(session.id, line);
     }

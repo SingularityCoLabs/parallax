@@ -98,15 +98,25 @@ generic OpenAI-compatible adapter (configurable base URL). Get a key at
 export PARALLAX_PROVIDER=nvidia
 export NVIDIA_API_KEY=nvapi-...
 
+# start the agent (interactive; this is what bare `parallax` does):
+parallax
+
 # one-shot goal (approvals prompted; -y to auto-approve, --read-only to sandbox):
 parallax run "Inspect this repo, run its tests, fix the failing one, and verify."
-
-# interactive REPL (Ctrl-C cancels the in-flight turn; empty line / "exit" quits):
-parallax chat
 
 # pick a different tool-calling model:
 parallax run "summarize package.json" -m nvidia/llama-3.1-nemotron-70b-instruct
 ```
+
+Prefer not to export variables? Put them in a `.env` file in your working
+directory — Parallax loads it automatically, and `.env` is git-ignored:
+
+```bash
+cp .env.example .env   # then fill in your key
+```
+
+In the REPL: Ctrl-C cancels the in-flight turn (or quits at an idle prompt),
+and `exit` / Ctrl-D quits.
 
 Config resolves as `CLI flag > env > built-in default`:
 

@@ -8,6 +8,7 @@ import { VERSION } from '../version.ts';
 import { CliRenderer } from './renderer.ts';
 import { runGoal, chatLoop, type AgentCliOptions } from './agentRunner.ts';
 import { runUninstall } from './uninstallRunner.ts';
+import { SetupRequiredError } from './setupGuidance.ts';
 
 // Convenience: load ./.env (e.g. NVIDIA_API_KEY) if present. Node 20.6+ built-in.
 try {
@@ -122,7 +123,9 @@ withAgentOptions(
 });
 
 withAgentOptions(
-  program.command('chat').description('Interactive REPL against the configured model provider.'),
+  program
+    .command('chat', { isDefault: true })
+    .description('Interactive REPL against the configured model provider (default command).'),
 ).action(async (opts: RawAgentOpts) => {
   await chatLoop(toAgentOptions(opts));
 });
@@ -176,6 +179,13 @@ program
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
+  // Setup problems are the user's to fix, not bugs — print the instructions
+  // plainly, with no "Error:" prefix and no stack trace.
+  if (err instanceof SetupRequiredError) {
+    process.stderr.write(`\n${err.message}`);
+    process.exitCode = 1;
+    return;
+  }
   process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
   process.exitCode = 1;
 });
