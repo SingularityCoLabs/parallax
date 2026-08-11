@@ -24,11 +24,11 @@ corepack enable
 pnpm install --frozen-lockfile
 ```
 
-Create a focused branch from the latest `main`:
+Create a focused branch from the latest `development` branch:
 
 ```bash
-git switch main
-git pull --ff-only
+git switch development
+git pull --ff-only origin development
 git switch -c fix/short-description
 ```
 
@@ -67,14 +67,17 @@ pnpm test
 - Link the relevant issue with `Closes #123` when applicable.
 - Complete the pull request template, including the security-impact section and
   exact validation evidence.
+- Target ordinary feature and fix pull requests at `development`. Maintainers
+  promote tested changes from `development` to `main` for release preparation.
 - Keep pull requests reviewable; split unrelated work into separate changes.
 - Respond to review feedback with follow-up commits. Maintainers may squash the
   final history when merging.
 
 ## Releases
 
-Maintainers should follow the [release guide](docs/releasing.md). Releases are
-automated from matching version tags; do not create GitHub Releases manually.
+Maintainers should follow the [release guide](docs/releasing.md). A new package
+version merged into `main` is verified, tagged, and published automatically; do
+not create GitHub Releases manually.
 
 ## Licensing
 

@@ -2,19 +2,157 @@ name: Publish package
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: publish-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish package to npm
+  publish-main:
+    name: Publish main release to npm
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Use npm with trusted-publishing support
+        run: npm install --global npm@11.17.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Inspect release state
+        id: release
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          release_tag="v${package_version}"
+          published_version="$(npm view "${package_name}@${package_version}" version 2>/dev/null || true)"
+
+          git fetch --force --tags origin
+          tag_commit=""
+          if git show-ref --verify --quiet "refs/tags/${release_tag}"; then
+            tag_commit="$(git rev-list -n 1 "${release_tag}")"
+          fi
+
+          if [[ "${published_version}" == "${package_version}" ]]; then
+            if [[ "${tag_commit}" == "${GITHUB_SHA}" ]]; then
+              release_mode=resume
+            else
+              release_mode=skip
+            fi
+          else
+            if [[ -n "${tag_commit}" && "${tag_commit}" != "${GITHUB_SHA}" ]]; then
+              echo "${release_tag} already points to ${tag_commit}, not ${GITHUB_SHA}." >&2
+              exit 1
+            fi
+            release_mode=publish
+          fi
+
+          echo "mode=${release_mode}" >> "${GITHUB_OUTPUT}"
+          echo "package_name=${package_name}" >> "${GITHUB_OUTPUT}"
+          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "tag_exists=$([[ -n "${tag_commit}" ]] && echo true || echo false)" >> "${GITHUB_OUTPUT}"
+
+          if [[ "${release_mode}" == "skip" ]]; then
+            echo "${package_name}@${package_version} is already published from an earlier commit; nothing to release."
+          fi
+
+      - name: Verify release artifact
+        if: ${{ steps.release.outputs.mode == 'publish' }}
+        run: pnpm verify:release
+
+      - name: Create release tag
+        if: ${{ steps.release.outputs.mode == 'publish' && steps.release.outputs.tag_exists == 'false' }}
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}"
+          git push origin "${RELEASE_TAG}"
+
+      - name: Publish to npm with provenance
+        if: ${{ steps.release.outputs.mode == 'publish' }}
+        env:
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+        run: |
+          if [[ "${PACKAGE_VERSION}" == *-* ]]; then
+            npm_tag=next
+          else
+            npm_tag=latest
+          fi
+          npm publish --provenance --tag "${npm_tag}" --access public
+
+      - name: Create GitHub Release
+        if: ${{ steps.release.outputs.mode != 'skip' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "GitHub Release ${RELEASE_TAG} already exists."
+            exit 0
+          fi
+
+          release_flags=(
+            --repo "${GITHUB_REPOSITORY}"
+            --verify-tag
+            --generate-notes
+            --title "${RELEASE_TAG}"
+          )
+          if [[ "${PACKAGE_VERSION}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "${RELEASE_TAG}" "${release_flags[@]}"
+
+  validate-development-publish:
+    name: Validate development publish request
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the development branch
+        env:
+          EXPECTED_REF: refs/heads/development
+        run: |
+          if [[ "${GITHUB_REF}" != "${EXPECTED_REF}" ]]; then
+            echo "Run this workflow from the development branch, not ${GITHUB_REF}." >&2
+            exit 1
+          fi
+
+  publish-development:
+    name: Publish development snapshot to npm
+    needs: validate-development-publish
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     environment:
       name: npm
@@ -22,7 +160,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Check out repository
+      - name: Check out development
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install pnpm
@@ -44,44 +182,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify release artifact
+      - name: Set unique development version
+        run: |
+          base_version="$(node -p "require('./package.json').version.split('-')[0]")"
+          development_version="${base_version}-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          npm version "${development_version}" --no-git-tag-version
+          echo "DEVELOPMENT_VERSION=${development_version}" >> "${GITHUB_ENV}"
+
+      - name: Verify development artifact
         run: pnpm verify:release
 
-      - name: Verify tag matches package version
-        env:
-          RELEASE_REF: ${{ github.ref_name }}
-        run: |
-          package_version="$(node -p "require('./package.json').version")"
-          test "v${package_version}" = "${RELEASE_REF}"
+      - name: Publish development snapshot
+        run: npm publish --provenance --tag dev --access public
 
-      - name: Publish to npm with provenance
+      - name: Summarize publication
         run: |
-          package_version="$(node -p "require('./package.json').version")"
-          if [[ "${package_version}" == *-* ]]; then
-            npm_tag=next
-          else
-            npm_tag=latest
-          fi
-          npm publish --provenance --tag "${npm_tag}" --access public
-
-  github-release:
-    name: Create GitHub Release
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Create release notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          release_flags=(
-            --repo "${GITHUB_REPOSITORY}"
-            --verify-tag
-            --generate-notes
-            --title "${GITHUB_REF_NAME}"
-          )
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            release_flags+=(--prerelease)
-          fi
-          gh release create "${GITHUB_REF_NAME}" "${release_flags[@]}"
+          package_name="$(node -p "require('./package.json').name")"
+          printf 'Published `%s@%s` with npm dist-tag `dev`.\n' \
+            "${package_name}" "${DEVELOPMENT_VERSION}" >> "${GITHUB_STEP_SUMMARY}"

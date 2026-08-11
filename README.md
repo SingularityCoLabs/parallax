@@ -171,6 +171,10 @@ pnpm test:package # pack, install, and test the CLI + SDK as a consumer
 pnpm format      # prettier
 ```
 
+Development snapshots are published manually from the `development` branch and
+can be installed with `npm install @singularitycolabs/parallax@dev`. Public beta
+releases are automated from `main`; see the [release guide](docs/releasing.md).
+
 ## What's here (v0.1)
 
 - Event-driven runtime with a strict turn loop: `model → validate → policy →

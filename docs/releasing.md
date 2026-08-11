@@ -1,190 +1,155 @@
 # Releasing Parallax
 
-Parallax releases are published from version tags by
-[`publish.yml`](../.github/workflows/publish.yml). Pushing a tag publishes the
-package to npm with provenance and creates the matching GitHub Release. Do not
-create the GitHub Release manually.
+Parallax uses two release paths in
+[`publish.yml`](../.github/workflows/publish.yml):
 
-## Release channels
+| Branch        | Trigger                    | npm dist-tag | Purpose               |
+| ------------- | -------------------------- | ------------ | --------------------- |
+| `main`        | Push a new package version | `next`       | Public beta releases  |
+| `development` | Manually run `publish.yml` | `dev`        | Development snapshots |
 
-The version in `package.json` and the Git tag must match exactly, with `v` added
-to the tag.
+Daily development belongs on `development`. Promote tested work to `main` with a
+pull request. The workflow creates release tags and GitHub Releases; do not use
+GitHub's **New release** page.
 
-| Package version | Git tag         | npm dist-tag | GitHub release |
-| --------------- | --------------- | ------------ | -------------- |
-| `0.1.0-beta.8`  | `v0.1.0-beta.8` | `next`       | Pre-release    |
-| `0.1.0`         | `v0.1.0`        | `latest`     | Stable release |
+## Repository setup
 
-Never reuse a version that npm has already published, and never move a published
-release tag. Skipped prerelease numbers are harmless.
+The npm trusted publisher is bound to this repository, the `publish.yml`
+workflow, and the `npm` GitHub Environment. The environment allows deployments
+from `main`, `development`, and release tags matching `v*`. Trusted publishing
+uses GitHub OIDC, so no `NPM_TOKEN` secret is required.
 
-## Prerequisites
+## Automatically publishing from `main`
 
-- You have permission to push to `main` and create tags.
-- The change being released is committed and pushed to `main`.
-- The `main` CI workflow is successful.
-- The npm trusted publisher is configured for this repository,
-  `.github/workflows/publish.yml`, and the `npm` GitHub Environment.
-- The `npm` Environment allows tags matching `v*`. It must be a tag rule, not a
-  branch rule.
+npm versions are immutable, so a normal commit whose `package.json` version is
+already published cannot produce another package. The workflow safely skips
+those commits. A commit containing a new version is automatically verified,
+tagged, published, and represented by a GitHub Release.
 
-Trusted publishing uses GitHub OIDC. No `NPM_TOKEN` repository or environment
-secret is required.
+### 1. Synchronize `development`
 
-## Release procedure
-
-### 1. Start from a clean, current `main`
+Before preparing a release, bring the most recent published version from `main`
+into `development`:
 
 ```bash
-git switch main
-git pull --ff-only origin main
-git status --short
+git switch development
+git pull --ff-only origin development
+git merge origin/main
 ```
 
-`git status --short` must print nothing. Confirm that the latest `main` CI run is
-successful before continuing.
+Resolve and test any merge conflicts before continuing.
 
-### 2. Choose the next unused version
-
-List the versions already published to npm:
+### 2. Confirm the current beta version
 
 ```bash
-npm view @singularitycolabs/parallax versions --json
-npm dist-tag ls @singularitycolabs/parallax
-```
-
-Set the version you intend to publish. Replace the example value with the next
-unused version:
-
-```bash
-release_version="0.1.0-beta.8"
-npm version "$release_version" --no-git-tag-version
 node -p "require('./package.json').version"
+npm view @singularitycolabs/parallax@next version
 ```
 
-`--no-git-tag-version` is required. It changes the manifest without creating a
-commit or tag prematurely.
+Both commands should print the same version. If they differ, synchronize with
+`main` before bumping the version.
 
-### 3. Verify the exact package artifact
+### 3. Bump and verify the next beta
 
 ```bash
+pnpm version:beta
+node -p "require('./package.json').version"
 pnpm verify:release
 git diff --check
-git diff -- package.json
 ```
 
-The release verification formats, typechecks, lints, tests, builds, packs,
-installs, and exercises the CLI and SDK from the generated tarball. Do not
-continue if any check fails.
+For example, `0.1.0-beta.7` becomes `0.1.0-beta.8`. Do not create a tag locally.
 
-### 4. Commit and push the version bump
+### 4. Commit and promote the release
 
 ```bash
 release_version="$(node -p "require('./package.json').version")"
 git add package.json
 git commit -m "release: v${release_version}"
-git push origin main
+git push origin development
 ```
 
-Wait for the new `main` CI run to complete successfully. The release tag must
-point to this version-bump commit, not the preceding feature commit.
+Open a pull request from `development` to `main`. After it is reviewed and
+merged, the `Publish package` workflow automatically:
 
-You can find the run from the terminal:
+1. Checks whether the exact npm version is new.
+2. Runs `pnpm verify:release` against the `main` commit.
+3. Creates the matching `v<version>` tag.
+4. Publishes prereleases to npm `next` or stable versions to npm `latest`.
+5. Creates the matching GitHub Release and generated release notes.
 
-```bash
-gh run list \
-  --repo SingularityCoLabs/parallax \
-  --workflow CI \
-  --branch main \
-  --limit 1
-```
-
-### 5. Create and push the tag
-
-After CI succeeds, synchronize and derive the tag from the committed manifest:
+Verify the completed release with:
 
 ```bash
-git switch main
-git pull --ff-only origin main
-git fetch --tags origin
-
-release_version="$(node -p "require('./package.json').version")"
-release_tag="v${release_version}"
-
-git status --short
-git tag --list "$release_tag"
-```
-
-The working tree must be clean, and `git tag --list` must print nothing. Then:
-
-```bash
-git tag -a "$release_tag" -m "Release ${release_tag}"
-git push origin "$release_tag"
-```
-
-Do not change the version after tagging. The publish workflow reads
-`package.json` from the tagged commit and rejects any mismatch.
-
-### 6. Monitor and verify publication
-
-The tag push triggers the `Publish package` workflow. It will:
-
-1. Install dependencies from the lockfile.
-2. Run `pnpm verify:release` against the tagged commit.
-3. Verify that `v${package.version}` equals the Git tag.
-4. Publish prereleases to npm `next` or stable versions to npm `latest`.
-5. Create the corresponding GitHub Release and generated release notes.
-
-After the workflow succeeds, verify both destinations:
-
-```bash
-release_version="$(node -p "require('./package.json').version")"
-release_tag="v${release_version}"
-
-npm view "@singularitycolabs/parallax@${release_version}" version
 npm dist-tag ls @singularitycolabs/parallax
-gh release view "$release_tag" --repo SingularityCoLabs/parallax
-```
-
-For a prerelease, verify the public CLI through the `next` channel:
-
-```bash
+npm view @singularitycolabs/parallax@next version
+gh release list --repo SingularityCoLabs/parallax --limit 5
 npx --yes @singularitycolabs/parallax@next --version
 ```
 
-## If a release fails
+## Manually publishing `development`
 
-### Tag and package version do not match
+The development path publishes a unique version such as
+`0.1.0-dev.<run-number>.<attempt>` under the npm `dev` dist-tag. It does not
+change `package.json`, create a Git tag, or create a GitHub Release.
 
-The tag was created before the version-bump commit or used a different version.
-Rerunning the workflow will not help because a tag always points to the same
-commit.
-
-Inspect the version stored in the tagged commit:
+Push the branch and make sure its CI run passes:
 
 ```bash
-git show v0.1.0-beta.8:package.json | node -e \
-  "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => console.log(JSON.parse(input).version));"
+git switch development
+git pull --ff-only origin development
+git push origin development
 ```
 
-The safest recovery is to increment to the next unused prerelease version,
-repeat the release procedure, and leave the failed tag as historical evidence.
-Never move a tag after its package or GitHub Release has been published.
+Then open **Actions → Publish package → Run workflow**, choose the
+`development` branch, and run it. Alternatively:
 
-### npm reports that the version already exists
+```bash
+gh workflow run publish.yml \
+  --repo SingularityCoLabs/parallax \
+  --ref development
+```
 
-npm versions are immutable. Increment the package version, commit it, wait for
-CI, and create a new matching tag.
+The workflow rejects manual runs from every other branch. After it succeeds:
 
-### The GitHub Environment rejects the tag
+```bash
+npm dist-tag ls @singularitycolabs/parallax
+npm view @singularitycolabs/parallax@dev version
+npx --yes @singularitycolabs/parallax@dev --version
+```
 
-In repository settings, open **Environments → npm → Deployment branches and
-tags**. Confirm that `v*` appears as an allowed **tag** pattern. No environment
-secret is needed for trusted publishing.
+## Publishing a stable version
 
-### The GitHub Release already exists
+When the beta is ready, set a stable SemVer version without a hyphen on
+`development`, run `pnpm verify:release`, and promote it to `main` through a pull
+request. Stable versions are published to npm `latest` and create a normal
+GitHub Release instead of a prerelease.
 
-Do not use GitHub's manual **New release** page. The workflow creates the release
-only after npm publishing succeeds. If someone manually created a release for an
-unpublished version, remove that manual release before retrying with a new,
-unused version.
+## Failure handling
+
+### A main commit is skipped
+
+The version in `package.json` is already on npm and belongs to an earlier commit.
+Bump to a new unused version on `development`, verify it, and promote it to
+`main`.
+
+### A tag exists but npm publication failed
+
+Rerun the failed workflow. If the tag points to the same commit, the workflow
+reuses it and retries verification and publication.
+
+### npm publication succeeds but GitHub Release creation fails
+
+Rerun the failed workflow. It recognizes the npm version and tag from the same
+commit, skips duplicate publication, and creates the missing GitHub Release.
+
+### The GitHub Environment rejects a deployment
+
+In **Settings → Environments → npm → Deployment branches and tags**, confirm
+that `main` and `development` are branch rules and `v*` is a tag rule.
+
+### npm authentication fails
+
+Confirm that npm trusted publishing names `publish.yml` exactly and uses the
+`npm` environment. The publish jobs require `id-token: write`, Node.js 24, npm
+11.5.1 or newer, and a GitHub-hosted runner.
