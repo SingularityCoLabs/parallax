@@ -71,6 +71,11 @@ pnpm test
 - Respond to review feedback with follow-up commits. Maintainers may squash the
   final history when merging.
 
+## Releases
+
+Maintainers should follow the [release guide](docs/releasing.md). Releases are
+automated from matching version tags; do not create GitHub Releases manually.
+
 ## Licensing
 
 By submitting a contribution, you agree that it may be distributed under the

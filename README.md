@@ -158,7 +158,8 @@ approval → execute → persist → model`.
 - A fake, scriptable model provider for deterministic tests and demos, plus an
   OpenAI-compatible provider (NVIDIA NIM) for real inference.
 
-See [docs/architecture.md](docs/architecture.md) and [docs/security.md](docs/security.md).
+See [docs/architecture.md](docs/architecture.md), [docs/security.md](docs/security.md),
+and the maintainer [release guide](docs/releasing.md).
 
 ## Not in v0.1 (designed-for extension points)
 
