@@ -119,6 +119,18 @@ export class SqliteSessionStore implements SessionStore {
     return Promise.resolve();
   }
 
+  updateSession(id: string, patch: { provider?: string; model?: string }): Promise<void> {
+    // COALESCE keeps the current value when a field isn't being changed.
+    this.db
+      .prepare(
+        `UPDATE sessions
+         SET provider = COALESCE(?, provider), model = COALESCE(?, model), updated_at = ?
+         WHERE id = ?`,
+      )
+      .run(nn(patch.provider), nn(patch.model), Date.now(), id);
+    return Promise.resolve();
+  }
+
   createTurn(sessionId: string, userText: string): Promise<TurnRecord> {
     const record: TurnRecord = {
       id: newTurnId(),

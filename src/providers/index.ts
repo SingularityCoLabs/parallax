@@ -11,7 +11,8 @@ export {
 } from './fake/FakeModelProvider.ts';
 export {
   OpenAiCompatibleProvider,
-  ProviderHttpError,
   type OpenAiCompatibleOptions,
   type FetchLike,
 } from './openai/OpenAiCompatibleProvider.ts';
+export { AnthropicProvider, type AnthropicOptions } from './anthropic/AnthropicProvider.ts';
+export { ProviderHttpError } from './errors.ts';

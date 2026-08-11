@@ -1,3 +1,5 @@
+import { getProvider } from '../config/index.ts';
+
 /**
  * A startup failure the user can fix, carrying the instructions to fix it.
  * The CLI prints `message` verbatim and exits non-zero — no stack trace, because
@@ -30,12 +32,24 @@ export function noProviderConfiguredMessage(): string {
   );
 }
 
-/** Provider selected but its key is absent. */
+/** Provider selected but its key is absent. Steps are tailored to the provider. */
 export function missingKeyMessage(provider: string, envVar: string): string {
+  const info = getProvider(provider);
+  const label = info?.label ?? provider;
+  const keyUrl = info?.keyUrl;
+  const steps = [
+    ...(keyUrl ? [`  1. Get an API key at ${keyUrl}.`] : []),
+    `  ${keyUrl ? 2 : 1}. Point Parallax at it, either in your shell:`,
+    `       export PARALLAX_PROVIDER=${provider}`,
+    `       export ${envVar}=...`,
+    '     ...or in a .env file in this directory (auto-loaded, git-ignored):',
+    `       printf 'PARALLAX_PROVIDER=${provider}\\n${envVar}=...\\n' > .env`,
+    `  ${keyUrl ? 3 : 2}. Run \`parallax\` again.`,
+  ].join('\n');
   return (
-    `Provider "${provider}" is selected but ${envVar} is not set, so Parallax cannot ` +
+    `Provider "${label}" is selected but ${envVar} is not set, so Parallax cannot ` +
     'reach the model.\n\n' +
     'Set it up:\n' +
-    SETUP_STEPS
+    `${steps}\n`
   );
 }

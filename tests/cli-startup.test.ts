@@ -34,10 +34,16 @@ function runCli(
   return { stdout: result.stdout ?? '', stderr: result.stderr ?? '', status: result.status };
 }
 
-function withTempHome<T>(fn: (home: string) => T): T {
+/**
+ * Provide an isolated HOME (state dir) and a `.env`-free working directory, so
+ * startup tests are deterministic regardless of any `.env` a developer keeps in
+ * the repo root (the CLI auto-loads `./.env`, which would otherwise leak a real
+ * provider/key into these assertions).
+ */
+function withTempHome<T>(fn: (ctx: { home: string; cwd: string }) => T): T {
   const dir = mkdtempSync(join(tmpdir(), 'parallax-cli-'));
   try {
-    return fn(join(dir, 'state'));
+    return fn({ home: join(dir, 'state'), cwd: dir });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -47,8 +53,8 @@ describe('CLI startup', () => {
   it('runs the agent by default instead of printing help', () => {
     // The bare command must not fall back to the usage screen — that was the
     // reported failure: `parallax` printed help and exited 1.
-    const { stdout, stderr, status } = withTempHome((home) =>
-      runCli([], { env: { PARALLAX_HOME: home } }),
+    const { stdout, stderr, status } = withTempHome(({ home, cwd }) =>
+      runCli([], { env: { PARALLAX_HOME: home }, cwd }),
     );
     const output = stdout + stderr;
     expect(output).not.toMatch(/Usage: parallax \[options\] \[command\]/);
@@ -57,7 +63,9 @@ describe('CLI startup', () => {
   });
 
   it('explains how to configure a model when none is set', () => {
-    const { stdout, stderr } = withTempHome((home) => runCli([], { env: { PARALLAX_HOME: home } }));
+    const { stdout, stderr } = withTempHome(({ home, cwd }) =>
+      runCli([], { env: { PARALLAX_HOME: home }, cwd }),
+    );
     const output = stdout + stderr;
     expect(output).toContain('build.nvidia.com');
     expect(output).toContain('PARALLAX_PROVIDER=nvidia');
@@ -69,8 +77,8 @@ describe('CLI startup', () => {
   });
 
   it('names the missing variable when a provider is selected without a key', () => {
-    const { stdout, stderr, status } = withTempHome((home) =>
-      runCli([], { env: { PARALLAX_HOME: home, PARALLAX_PROVIDER: 'nvidia' } }),
+    const { stdout, stderr, status } = withTempHome(({ home, cwd }) =>
+      runCli([], { env: { PARALLAX_HOME: home, PARALLAX_PROVIDER: 'nvidia' }, cwd }),
     );
     const output = stdout + stderr;
     expect(output).toContain('NVIDIA_API_KEY is not set');
@@ -79,21 +87,25 @@ describe('CLI startup', () => {
   });
 
   it('still routes explicit subcommands', () => {
-    const { stdout } = withTempHome((home) =>
-      runCli(['demo', '--list'], { env: { PARALLAX_HOME: home } }),
+    const { stdout } = withTempHome(({ home, cwd }) =>
+      runCli(['demo', '--list'], { env: { PARALLAX_HOME: home }, cwd }),
     );
     expect(stdout).toContain('edit-fix');
     expect(stdout).toContain('inspect');
   });
 
   it('still prints help and version on request', () => {
-    const help = withTempHome((home) => runCli(['--help'], { env: { PARALLAX_HOME: home } }));
+    const help = withTempHome(({ home, cwd }) =>
+      runCli(['--help'], { env: { PARALLAX_HOME: home }, cwd }),
+    );
     expect(help.stdout).toMatch(/Usage: parallax/);
     // The default command is discoverable from the help output.
     expect(help.stdout).toMatch(/chat/);
     expect(help.status).toBe(0);
 
-    const version = withTempHome((home) => runCli(['--version'], { env: { PARALLAX_HOME: home } }));
+    const version = withTempHome(({ home, cwd }) =>
+      runCli(['--version'], { env: { PARALLAX_HOME: home }, cwd }),
+    );
     expect(version.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 

@@ -23,6 +23,12 @@ export interface SessionStore {
   getSession(id: string): Promise<SessionRecord | undefined>;
   listSessions(): Promise<SessionRecord[]>;
   setSessionStatus(id: string, status: SessionStatus): Promise<void>;
+  /**
+   * Update the provider and/or model of an existing session in place. Used when
+   * the user switches model/provider mid-chat so the conversation continues in
+   * the same session (blueprint §11.4). Only the supplied fields change.
+   */
+  updateSession(id: string, patch: { provider?: string; model?: string }): Promise<void>;
 
   createTurn(sessionId: string, userText: string): Promise<TurnRecord>;
   setTurnStatus(id: string, status: TurnStatus, completedAt?: number): Promise<void>;

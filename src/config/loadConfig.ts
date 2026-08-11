@@ -1,4 +1,5 @@
 import { configSchema, defaultConfig, providerNameSchema, type Config } from './schema.ts';
+import { getProvider } from './providers.ts';
 
 /**
  * Load configuration. v0.1 uses defaults plus a small set of env overrides
@@ -23,12 +24,17 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
 }
 
 /**
- * Resolve the API key for a real provider from the environment (blueprint §29).
- * NVIDIA NIM keys are conventionally `nvapi-...` in `NVIDIA_API_KEY`; we also
- * accept `PARALLAX_API_KEY` as a provider-agnostic override.
+ * Resolve the API key for a provider from the environment (blueprint §29).
+ * `PARALLAX_API_KEY` is a provider-agnostic override checked first; otherwise
+ * each of the provider's catalog `apiKeyEnv` vars is tried in order (e.g.
+ * `NVIDIA_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). Keys are read here,
+ * never persisted to config, so they can't leak into the session store or logs.
  */
 export function resolveApiKey(provider: string): string | undefined {
   if (process.env.PARALLAX_API_KEY) return process.env.PARALLAX_API_KEY;
-  if (provider === 'nvidia') return process.env.NVIDIA_API_KEY;
+  for (const envVar of getProvider(provider)?.apiKeyEnv ?? []) {
+    const value = process.env[envVar];
+    if (value) return value;
+  }
   return undefined;
 }

@@ -63,6 +63,16 @@ export class InMemorySessionStore implements SessionStore {
     return Promise.resolve();
   }
 
+  updateSession(id: string, patch: { provider?: string; model?: string }): Promise<void> {
+    const s = this.sessions.get(id);
+    if (s) {
+      if (patch.provider !== undefined) s.provider = patch.provider;
+      if (patch.model !== undefined) s.model = patch.model;
+      s.updatedAt = Date.now();
+    }
+    return Promise.resolve();
+  }
+
   createTurn(sessionId: string, userText: string): Promise<TurnRecord> {
     const record: TurnRecord = {
       id: newTurnId(),

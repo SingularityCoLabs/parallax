@@ -67,6 +67,16 @@ export class RuntimeFacade {
     return this.bus.subscribe(listener);
   }
 
+  /**
+   * Swap the model provider for subsequent turns (blueprint §11.4). Turns build
+   * their request from the provider at call time, so an in-flight turn keeps the
+   * provider it started with and the next turn uses the new one. The session's
+   * persisted provider/model is updated separately by the caller.
+   */
+  setModelProvider(provider: ModelProvider): void {
+    this.cfg.provider = provider;
+  }
+
   async createSession(options: CreateSessionOptions): Promise<SessionRecord> {
     const model = options.model ?? this.cfg.defaultModel;
     const session = await this.cfg.store.createSession({

@@ -88,15 +88,29 @@ parallax resume <sessionId>
 You approve each side effect (shell command, file edit) at the prompt; edits show a
 diff first. Sessions persist to `~/.parallax/sessions.sqlite` unless `--no-persist`.
 
-## Use a real model (NVIDIA NIM)
+## Use a real model
 
-NVIDIA NIM exposes an **OpenAI-compatible** API, so Parallax drives it through a
-generic OpenAI-compatible adapter (configurable base URL). Get a key at
-[build.nvidia.com](https://build.nvidia.com) (it starts with `nvapi-`), then:
+Parallax talks to many providers through a small provider registry. Pick one with
+`PARALLAX_PROVIDER`, set that provider's API key, and go:
+
+| Provider      | `PARALLAX_PROVIDER` | API key env          | Default model                 |
+| ------------- | ------------------- | -------------------- | ----------------------------- |
+| Anthropic     | `anthropic`         | `ANTHROPIC_API_KEY`  | `claude-opus-4-8`             |
+| OpenAI        | `openai`            | `OPENAI_API_KEY`     | `gpt-4o`                      |
+| NVIDIA NIM    | `nvidia`            | `NVIDIA_API_KEY`     | `meta/llama-3.3-70b-instruct` |
+| OpenRouter    | `openrouter`        | `OPENROUTER_API_KEY` | `anthropic/claude-sonnet-4.5` |
+| Moonshot/Kimi | `moonshot`          | `MOONSHOT_API_KEY`   | `kimi-k2-0711-preview`        |
+| Custom        | `custom`            | `PARALLAX_API_KEY`   | (set `PARALLAX_API_BASE_URL`) |
+
+Every provider except Anthropic speaks the OpenAI wire format, so any
+OpenAI-compatible endpoint (a local vLLM, Ollama's `/v1`, a proxy) works via
+`PARALLAX_PROVIDER=custom` + `PARALLAX_API_BASE_URL`. Anthropic uses its native
+`/v1/messages` API. Either way the runtime, tools, policy, and CLI are unchanged —
+the provider is a drop-in `ModelProvider`.
 
 ```bash
-export PARALLAX_PROVIDER=nvidia
-export NVIDIA_API_KEY=nvapi-...
+export PARALLAX_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
 
 # start the agent (interactive; this is what bare `parallax` does):
 parallax
@@ -104,9 +118,27 @@ parallax
 # one-shot goal (approvals prompted; -y to auto-approve, --read-only to sandbox):
 parallax run "Inspect this repo, run its tests, fix the failing one, and verify."
 
-# pick a different tool-calling model:
-parallax run "summarize package.json" -m nvidia/llama-3.1-nemotron-70b-instruct
+# pick a provider and model up front:
+parallax run "summarize package.json" -p openai -m gpt-4o
+parallax run "summarize package.json" -p nvidia -m meta/llama-3.1-nemotron-70b-instruct
 ```
+
+### Switch models mid-chat
+
+In the REPL, slash commands change the model or provider **without losing the
+conversation** — the history carries over to the new model:
+
+```
+> /providers                       list providers and which have a key
+> /models                          list models for the current provider
+> /provider openai                 switch provider (uses its default model)
+> /model anthropic/claude-sonnet-4-6   switch provider + model in one step
+> /model gpt-4o                    switch model on the current provider
+> /help                            show all commands
+```
+
+A switch to a provider whose key is missing prints setup guidance and keeps the
+current model — the session keeps working.
 
 Prefer not to export variables? Put them in a `.env` file in your working
 directory — Parallax loads it automatically, and `.env` is git-ignored:
@@ -120,16 +152,12 @@ and `exit` / Ctrl-D quits.
 
 Config resolves as `CLI flag > env > built-in default`:
 
-| Variable                              | Purpose                    | Default                               |
-| ------------------------------------- | -------------------------- | ------------------------------------- |
-| `PARALLAX_PROVIDER`                   | `fake` or `nvidia`         | `fake`                                |
-| `NVIDIA_API_KEY` / `PARALLAX_API_KEY` | API key                    | —                                     |
-| `PARALLAX_MODEL` (or `-m`)            | model id                   | `meta/llama-3.3-70b-instruct`         |
-| `PARALLAX_API_BASE_URL`               | OpenAI-compatible endpoint | `https://integrate.api.nvidia.com/v1` |
-
-The provider is a drop-in `ModelProvider` — the runtime, tools, policy, and CLI are
-unchanged whether the model is fake or real. Any other OpenAI-compatible endpoint
-(vLLM, Ollama's `/v1`, etc.) works by pointing `PARALLAX_API_BASE_URL` at it.
+| Variable                                  | Purpose                                 | Default            |
+| ----------------------------------------- | --------------------------------------- | ------------------ |
+| `PARALLAX_PROVIDER` (or `-p`)             | provider id (see table above)           | `fake`             |
+| `<PROVIDER>_API_KEY` / `PARALLAX_API_KEY` | API key for the provider                | —                  |
+| `PARALLAX_MODEL` (or `-m`)                | model id                                | provider's default |
+| `PARALLAX_API_BASE_URL`                   | override the OpenAI-compatible endpoint | provider's default |
 
 ## Develop
 
@@ -155,8 +183,10 @@ approval → execute → persist → model`.
   process-group cleanup.
 - Deterministic `ALLOW / ASK / DENY` policy with `read-only` and `workspace` modes.
 - SQLite session persistence + resume.
-- A fake, scriptable model provider for deterministic tests and demos, plus an
-  OpenAI-compatible provider (NVIDIA NIM) for real inference.
+- A fake, scriptable model provider for deterministic tests and demos, plus real
+  providers via a small registry: a native Anthropic (Claude) adapter and an
+  OpenAI-compatible adapter (OpenAI, NVIDIA NIM, OpenRouter, Moonshot/Kimi, or any
+  compatible endpoint), switchable at runtime with `/model` and `/provider`.
 
 See [docs/architecture.md](docs/architecture.md), [docs/security.md](docs/security.md),
 and the maintainer [release guide](docs/releasing.md).

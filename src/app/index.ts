@@ -7,9 +7,11 @@ export {
   buildProvider,
   providerSupportsChat,
   displayModel,
+  apiKeyEnvHint,
   MissingApiKeyError,
 } from './buildProvider.ts';
 export { createAgent, type CreateAgentOptions, type Agent } from './createAgent.ts';
+export { applyModelSelection, type AppliedModel } from './switchModel.ts';
 export {
   planUninstall,
   planUninstallWithSessions,

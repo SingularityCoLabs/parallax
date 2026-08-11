@@ -2,6 +2,7 @@ import { newToolCallId, type ToolCall } from '../../protocol/index.ts';
 import type { ModelEvent } from '../ModelEvent.ts';
 import type { ModelRequest } from '../ModelRequest.ts';
 import type { ModelCapabilities, ModelProvider } from '../ModelProvider.ts';
+import { ProviderHttpError, safeText } from '../errors.ts';
 import { toChatRequest } from './chatRequest.ts';
 import { parseSseStream } from './sse.ts';
 
@@ -146,23 +147,6 @@ function assembleCall(tc: StreamingToolCall): ToolCall {
     }
   }
   return { id: tc.id || newToolCallId(), name: tc.name, arguments: args };
-}
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return '<no body>';
-  }
-}
-
-export class ProviderHttpError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = 'ProviderHttpError';
-    this.status = status;
-  }
 }
 
 interface ChatChunk {

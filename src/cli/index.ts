@@ -92,6 +92,7 @@ program
 const withAgentOptions = (cmd: Command): Command =>
   cmd
     .option('-C, --cwd <dir>', 'workspace directory', process.cwd())
+    .option('-p, --provider <id>', 'provider id (see `parallax` /providers)')
     .option('-m, --model <model>', 'model id (overrides provider default)')
     .option('--read-only', 'run in read-only permission mode', false)
     .option('-y, --yes', 'auto-approve all side effects (non-interactive)', false)
@@ -99,6 +100,7 @@ const withAgentOptions = (cmd: Command): Command =>
 
 interface RawAgentOpts {
   cwd: string;
+  provider?: string;
   model?: string;
   readOnly: boolean;
   yes: boolean;
@@ -110,6 +112,7 @@ const toAgentOptions = (o: RawAgentOpts): AgentCliOptions => ({
   readOnly: o.readOnly,
   yes: o.yes,
   persist: o.persist,
+  ...(o.provider !== undefined ? { provider: o.provider } : {}),
   ...(o.model !== undefined ? { model: o.model } : {}),
 });
 

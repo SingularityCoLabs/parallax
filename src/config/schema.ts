@@ -1,15 +1,19 @@
 import { z } from 'zod';
 import { permissionModeSchema } from '../protocol/index.ts';
+import { getProvider, providerIds } from './providers.ts';
 
-/** Supported model providers (blueprint §11.4 — one fake + one real for v0.1). */
-export const providerNameSchema = z.enum(['fake', 'nvidia']);
+/**
+ * Supported model providers — the ids of the provider catalog (blueprint §11.4).
+ * The catalog (`providers.ts`) is the single source of truth; adding a provider
+ * there makes it selectable here with no change to this schema.
+ */
+export const providerNameSchema = z.enum(providerIds() as [string, ...string[]]);
 export type ProviderName = z.infer<typeof providerNameSchema>;
 
-/** Per-provider default model when none is specified. */
-export const PROVIDER_DEFAULT_MODEL: Record<ProviderName, string> = {
-  fake: 'fake-1',
-  nvidia: 'meta/llama-3.3-70b-instruct',
-};
+/** Per-provider default model when none is specified (derived from the catalog). */
+export const PROVIDER_DEFAULT_MODEL: Record<string, string> = Object.fromEntries(
+  providerIds().map((id) => [id, getProvider(id)?.defaultModel ?? '']),
+);
 
 /**
  * Runtime configuration (blueprint §28). v0.1 exposes the knobs the runtime and
@@ -18,10 +22,16 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderName, string> = {
  */
 export const configSchema = z.object({
   provider: providerNameSchema.default('fake'),
-  /** Empty string means "use the provider's default model" (resolved in loadConfig). */
+  /** Empty string means "use the provider's default model" (see effectiveModel). */
   defaultModel: z.string().default(''),
-  /** OpenAI-compatible base URL for the real provider (NVIDIA NIM by default). */
-  apiBaseUrl: z.string().url().default('https://integrate.api.nvidia.com/v1'),
+  /**
+   * Base URL override. Empty string means "use the selected provider's catalog
+   * base URL" (see effectiveBaseUrl). Set via PARALLAX_API_BASE_URL to point at
+   * a custom OpenAI-compatible endpoint (local vLLM/Ollama, a proxy, …).
+   */
+  apiBaseUrl: z.union([z.literal(''), z.string().url()]).default(''),
+  /** Upper bound on model output tokens per response (required by Anthropic). */
+  maxOutputTokens: z.number().int().positive().default(16_000),
   permissionMode: permissionModeSchema.default('workspace'),
   maxSteps: z.number().int().positive().default(24),
   systemPrompt: z
@@ -47,5 +57,16 @@ export function defaultConfig(): Config {
 
 /** Resolve the effective model: explicit value wins, else the provider default. */
 export function effectiveModel(config: Config): string {
-  return config.defaultModel !== '' ? config.defaultModel : PROVIDER_DEFAULT_MODEL[config.provider];
+  if (config.defaultModel !== '') return config.defaultModel;
+  return getProvider(config.provider)?.defaultModel ?? '';
+}
+
+/**
+ * Resolve the effective base URL: an explicit override wins, else the selected
+ * provider's catalog base URL. Empty (the default) means "ask the catalog", so
+ * switching providers picks up the right endpoint without an env change.
+ */
+export function effectiveBaseUrl(config: Config): string {
+  if (config.apiBaseUrl !== '') return config.apiBaseUrl;
+  return getProvider(config.provider)?.baseUrl ?? '';
 }
