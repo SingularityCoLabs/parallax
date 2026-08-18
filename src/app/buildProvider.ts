@@ -22,6 +22,18 @@ export class MissingApiKeyError extends Error {
   }
 }
 
+/** A provider that is in the catalog but Parallax cannot drive (needs a vendor SDK). */
+export class UnsupportedProviderError extends Error {
+  constructor(provider: string) {
+    super(
+      `Provider "${provider}" is listed in the catalog but not supported by Parallax ` +
+        `(it needs a vendor SDK Parallax does not ship). Pick an OpenAI-compatible or ` +
+        `Anthropic provider, or define a custom one in parallax.json.`,
+    );
+    this.name = 'UnsupportedProviderError';
+  }
+}
+
 /** The env var to name in setup guidance for a provider (catalog-driven). */
 export function apiKeyEnvHint(provider: string): string {
   return getProvider(provider)?.apiKeyEnv[0] ?? 'PARALLAX_API_KEY';
@@ -40,6 +52,10 @@ export function buildProvider(config: Config, options: { apiKey?: string } = {})
   const info = getProvider(config.provider);
   if (!info || info.wire === 'fake') {
     return new FakeModelProvider();
+  }
+
+  if (!info.supported) {
+    throw new UnsupportedProviderError(config.provider);
   }
 
   const apiKey = options.apiKey ?? resolveApiKey(config.provider);

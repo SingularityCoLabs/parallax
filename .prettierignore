@@ -1,0 +1,7 @@
+# Reference-only snapshot of Claude Code's source (compiled output, not ours).
+claude-code/
+# Build + dependency output.
+dist/
+node_modules/
+coverage/
+pnpm-lock.yaml

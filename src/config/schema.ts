@@ -1,19 +1,21 @@
 import { z } from 'zod';
 import { permissionModeSchema } from '../protocol/index.ts';
-import { getProvider, providerIds } from './providers.ts';
+import { getProvider } from './providers.ts';
 
 /**
- * Supported model providers — the ids of the provider catalog (blueprint §11.4).
- * The catalog (`providers.ts`) is the single source of truth; adding a provider
- * there makes it selectable here with no change to this schema.
+ * Model provider id. Historically a `z.enum` of the static catalog, but the
+ * catalog is now *dynamic* (models.dev + `parallax.json` add providers at
+ * runtime), so the id is validated as a free string here. An unknown provider is
+ * caught later — gracefully — at provider-build time (`buildProvider`) and by the
+ * `/provider` command, which report a friendly error instead of a raw ZodError.
  */
-export const providerNameSchema = z.enum(providerIds() as [string, ...string[]]);
+export const providerNameSchema = z.string();
 export type ProviderName = z.infer<typeof providerNameSchema>;
 
-/** Per-provider default model when none is specified (derived from the catalog). */
-export const PROVIDER_DEFAULT_MODEL: Record<string, string> = Object.fromEntries(
-  providerIds().map((id) => [id, getProvider(id)?.defaultModel ?? '']),
-);
+/** Per-provider default model when none is specified (read from the live catalog). */
+export function providerDefaultModel(id: string): string {
+  return getProvider(id)?.defaultModel ?? '';
+}
 
 /**
  * Runtime configuration (blueprint §28). v0.1 exposes the knobs the runtime and

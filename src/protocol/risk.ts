@@ -26,7 +26,18 @@ export const resourceClassSchema: z.ZodType<ResourceClass> = z.enum([
   'external',
 ]);
 
-/** Deterministic permission modes for v0.1 (blueprint §16.3). */
-export type PermissionMode = 'read-only' | 'workspace';
+/**
+ * Deterministic permission modes (blueprint §16.3).
+ * - `read-only`: allow reads, block every side effect.
+ * - `workspace`: allow reads, ASK for writes/shell/destructive/network.
+ * - `plan`: like `read-only` for *gating* (no side effects), but semantically a
+ *   "research & propose" mode — the agent inspects and drafts a plan without
+ *   touching anything. Toggled with Shift+Tab in the TUI.
+ */
+export type PermissionMode = 'read-only' | 'workspace' | 'plan';
 
-export const permissionModeSchema: z.ZodType<PermissionMode> = z.enum(['read-only', 'workspace']);
+export const permissionModeSchema: z.ZodType<PermissionMode> = z.enum([
+  'read-only',
+  'workspace',
+  'plan',
+]);

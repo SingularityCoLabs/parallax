@@ -9,6 +9,7 @@ export {
   displayModel,
   apiKeyEnvHint,
   MissingApiKeyError,
+  UnsupportedProviderError,
 } from './buildProvider.ts';
 export { createAgent, type CreateAgentOptions, type Agent } from './createAgent.ts';
 export { applyModelSelection, type AppliedModel } from './switchModel.ts';

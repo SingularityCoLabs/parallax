@@ -12,6 +12,7 @@ import {
   databasePath,
   effectiveModel,
   getProvider,
+  refreshCatalog,
   type Config,
 } from '../config/index.ts';
 import type { ApprovalDecision, PermissionMode } from '../protocol/index.ts';
@@ -138,9 +139,36 @@ export async function chatLoop(options: AgentCliOptions): Promise<void> {
   ensureChatCapable(config);
   const mode: PermissionMode = options.readOnly ? 'read-only' : 'workspace';
 
+  // On a real terminal, launch the rich Ink TUI (Claude Code-like). Non-TTY
+  // (pipes, CI, `parallax run`, tests) keeps the line-oriented readline path
+  // below, so headless behavior and every existing test are unchanged. The TUI
+  // is dynamically imported so React/Ink never load on the non-interactive path.
+  if (process.stdin.isTTY && process.stdout.isTTY && process.env.PARALLAX_NO_TUI !== '1') {
+    // Build the agent here (not inside the TUI) so a missing key surfaces as the
+    // friendly SetupRequiredError, exactly like the readline path.
+    const agent = buildAgent(config, options);
+    const session = await agent.facade.createSession({ cwd: options.cwd, permissionMode: mode });
+    const { runTui } = await import('./tui/run.tsx');
+    await runTui({
+      agent,
+      sessionId: session.id,
+      buildConfig: (over) => buildConfig({ ...options, ...over }),
+      provider: config.provider,
+      model: effectiveModel(config),
+      mode,
+      cwd: options.cwd,
+    });
+    return;
+  }
+
   const renderer = new CliRenderer();
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   const agent = buildAgent(config, options);
+
+  // Best-effort: refresh the model catalog from models.dev in the background so
+  // `/models` reflects the latest. Never blocks startup and never throws — an
+  // offline run keeps the bundled snapshot.
+  void refreshCatalog();
 
   let activeTurn: string | undefined;
   const unsubscribe = wire(agent, renderer, makeApprovalHandler(options.yes, rl), (t) => {
@@ -195,6 +223,45 @@ export async function chatLoop(options: AgentCliOptions): Promise<void> {
     agent.facade.close();
     rl.close();
   }
+}
+
+/**
+ * Resume a persisted session into the interactive TUI (TTY only): rebuild an
+ * agent on the session's provider/model, seed the timeline with the stored
+ * transcript, and continue the conversation on the same thread. Returns `false`
+ * if the session id is unknown (the caller falls back / reports it).
+ */
+export async function resumeChat(
+  sessionIdPrefix: string,
+  options: AgentCliOptions,
+): Promise<boolean> {
+  const { listPersistedSessions } = await import('../app/index.ts');
+  const sessions = await listPersistedSessions(databasePath());
+  const match =
+    sessions.find((s) => s.id === sessionIdPrefix) ??
+    sessions.find((s) => s.id.startsWith(sessionIdPrefix));
+  if (!match) return false;
+
+  // Rebuild config on the session's own provider/model so it continues as saved.
+  const config = buildConfig({ ...options, provider: match.provider, model: match.model });
+  ensureChatCapable(config);
+  const agent = buildAgent(config, { ...options, persist: true });
+  await agent.facade.resumeSession(match.id);
+  const seedEvents = await agent.facade.listEvents(match.id);
+
+  const { runTui } = await import('./tui/run.tsx');
+  await runTui({
+    agent,
+    sessionId: match.id,
+    buildConfig: (over) =>
+      buildConfig({ ...options, provider: match.provider, model: match.model, ...over }),
+    provider: match.provider,
+    model: match.model,
+    mode: match.permissionMode,
+    cwd: match.cwd,
+    seedEvents,
+  });
+  return true;
 }
 
 interface ChatState {

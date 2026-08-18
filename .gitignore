@@ -9,3 +9,7 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Reference-only snapshot of Claude Code's source (analyzed for the TUI design;
+# ~33MB of compiled output, never shipped or built). Not part of this package.
+claude-code/

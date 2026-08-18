@@ -10,7 +10,9 @@ proposes actions; deterministic code validates, authorizes, and executes them.
 
 > Status: **v0.1 beta** — a working single-agent loop with typed tools,
 > deterministic permissions, native file editing, shell execution, durable
-> sessions, and fake plus OpenAI-compatible model providers.
+> sessions, a **Claude Code-like terminal UI** (React + Ink), and an
+> **OpenCode-style model catalog** (models.dev) across fake, Anthropic, and
+> OpenAI-compatible providers.
 
 ## Requirements
 
@@ -125,16 +127,36 @@ parallax run "summarize package.json" -p nvidia -m meta/llama-3.1-nemotron-70b-i
 
 ### Switch models mid-chat
 
-In the REPL, slash commands change the model or provider **without losing the
-conversation** — the history carries over to the new model:
+On a real terminal, `parallax` opens a **Claude Code-like TUI** (React + Ink): a
+scrolling transcript with streaming responses and tool blocks, an interactive
+approval menu, a bordered prompt with slash-command autocomplete, and a status
+footer. (Piped/non-TTY input and `parallax run` use a plain line renderer; force
+it anywhere with `PARALLAX_NO_TUI=1`.)
+
+Slash commands change the model or provider **without losing the conversation** —
+the history carries over to the new model:
 
 ```
 > /providers                       list providers and which have a key
-> /models                          list models for the current provider
+> /models                          list models for the current provider (with price/context)
 > /provider openai                 switch provider (uses its default model)
 > /model anthropic/claude-sonnet-4-6   switch provider + model in one step
 > /model gpt-4o                    switch model on the current provider
+> /mode plan                       switch permission mode (or Shift+Tab to cycle)
+> /sessions                        list persisted sessions
 > /help                            show all commands
+```
+
+Keys: **Shift+Tab** cycles the permission mode (`workspace → plan → read-only`),
+**Esc**/**Ctrl-C** cancels the in-flight turn (or quits when idle), **↑/↓** walk
+input history, **Tab** completes a slash command. At an approval prompt, choose
+**Yes**, **Yes and don't ask again** (remembers the tool for the session), or **No**.
+
+Resume a past session straight into the UI, transcript and all:
+
+```bash
+parallax resume <sessionId>        # reopens interactively; continue the conversation
+parallax resume <sessionId> --print   # just replay the transcript to stdout
 ```
 
 A switch to a provider whose key is missing prints setup guidance and keeps the
@@ -147,17 +169,46 @@ directory — Parallax loads it automatically, and `.env` is git-ignored:
 cp .env.example .env   # then fill in your key
 ```
 
-In the REPL: Ctrl-C cancels the in-flight turn (or quits at an idle prompt),
-and `exit` / Ctrl-D quits.
+Config resolves as `CLI flag > env > parallax.json > built-in default`:
 
-Config resolves as `CLI flag > env > built-in default`:
+| Variable                                  | Purpose                                 | Default                       |
+| ----------------------------------------- | --------------------------------------- | ----------------------------- |
+| `PARALLAX_PROVIDER` (or `-p`)             | provider id (see table above)           | `fake`                        |
+| `<PROVIDER>_API_KEY` / `PARALLAX_API_KEY` | API key for the provider                | —                             |
+| `PARALLAX_MODEL` (or `-m`)                | model id                                | provider's default            |
+| `PARALLAX_API_BASE_URL`                   | override the OpenAI-compatible endpoint | provider's default            |
+| `PARALLAX_MODELS_URL`                     | models.dev catalog endpoint             | `https://models.dev/api.json` |
+| `PARALLAX_DISABLE_MODELS_FETCH`           | use only the bundled catalog snapshot   | (fetch enabled)               |
+| `PARALLAX_NO_TUI`                         | force the plain renderer on a TTY       | (TUI on a TTY)                |
 
-| Variable                                  | Purpose                                 | Default            |
-| ----------------------------------------- | --------------------------------------- | ------------------ |
-| `PARALLAX_PROVIDER` (or `-p`)             | provider id (see table above)           | `fake`             |
-| `<PROVIDER>_API_KEY` / `PARALLAX_API_KEY` | API key for the provider                | —                  |
-| `PARALLAX_MODEL` (or `-m`)                | model id                                | provider's default |
-| `PARALLAX_API_BASE_URL`                   | override the OpenAI-compatible endpoint | provider's default |
+### Model catalog & custom providers (OpenCode-style)
+
+Parallax's provider list is enriched from [models.dev](https://models.dev):
+per-model **cost**, **context/output limits**, and **capabilities**, fetched once
+and cached under `~/.parallax/models.json` (with a background refresh). It works
+fully offline from a **bundled snapshot** — the network only augments it.
+
+Define your own provider or override models in a `parallax.json` (in the current
+directory or `~/.parallax/`):
+
+```json
+{
+  "provider": "myvllm",
+  "providers": {
+    "myvllm": {
+      "name": "My local vLLM",
+      "baseURL": "http://localhost:8000/v1",
+      "env": ["MYVLLM_API_KEY"],
+      "wire": "openai",
+      "defaultModel": "llama-3-8b",
+      "models": { "llama-3-8b": { "name": "Llama 3 8B", "limitContext": 8192 } }
+    }
+  }
+}
+```
+
+Precedence is `parallax.json` > models.dev cache > bundled snapshot for metadata,
+and `CLI flag > env > parallax.json` for the active provider/model.
 
 ## Develop
 
@@ -185,10 +236,19 @@ approval → execute → persist → model`.
   read-before-write stale checks.
 - `shell` tool over a `HostExecutor` with timeout, output caps, cancellation, and
   process-group cleanup.
-- Deterministic `ALLOW / ASK / DENY` policy with `read-only` and `workspace` modes.
-- SQLite session persistence + resume.
+- Deterministic `ALLOW / ASK / DENY` policy with `read-only`, `workspace`, and
+  `plan` modes; approvals support "allow once" and "allow always" (remembered
+  per session).
+- SQLite session persistence + resume (interactive or `--print`).
+- A **Claude Code-like terminal UI** (React + Ink): streaming transcript, tool
+  blocks with live output + diffs, an interactive approval menu, a bordered
+  prompt with slash-command autocomplete, permission-mode cycling, and a status
+  footer. Non-TTY falls back to a plain line renderer.
+- An **OpenCode-style model catalog** enriched from [models.dev](https://models.dev)
+  (cost/limits/capabilities) with a bundled offline snapshot and a `parallax.json`
+  for custom providers/overrides.
 - A fake, scriptable model provider for deterministic tests and demos, plus real
-  providers via a small registry: a native Anthropic (Claude) adapter and an
+  providers via the registry: a native Anthropic (Claude) adapter and an
   OpenAI-compatible adapter (OpenAI, NVIDIA NIM, OpenRouter, Moonshot/Kimi, or any
   compatible endpoint), switchable at runtime with `/model` and `/provider`.
 
@@ -197,7 +257,7 @@ and the maintainer [release guide](docs/releasing.md).
 
 ## Not in v0.1 (designed-for extension points)
 
-Context compaction, TUI, MCP / skills / hooks, browser & web tools,
+Context compaction, MCP / skills / hooks, browser & web tools,
 checkpoints/undo, subagents, and sandboxed executor backends.
 The interfaces (`ModelProvider`, `Executor`, `ToolRegistry`, `SessionStore`) are
 shaped so these slot in without reworking the runtime.

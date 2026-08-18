@@ -55,7 +55,7 @@ export class CliRenderer {
         break;
       }
       case 'approval.resolved':
-        this.write(event.decision === 'allow_once' ? green('  ✓ approved\n') : red('  ✗ denied\n'));
+        this.write(event.decision === 'deny' ? red('  ✗ denied\n') : green('  ✓ approved\n'));
         break;
       case 'tool.started':
         this.write(dim(`  ${event.toolName} …\n`));

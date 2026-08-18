@@ -1,5 +1,6 @@
 import { newSessionId, newTurnId, type RuntimeEvent } from '../protocol/index.ts';
 import type { SessionStore } from './SessionStore.ts';
+import type { PermissionMode } from '../protocol/index.ts';
 import type {
   AppendMessageInput,
   ApprovalRecord,
@@ -63,11 +64,15 @@ export class InMemorySessionStore implements SessionStore {
     return Promise.resolve();
   }
 
-  updateSession(id: string, patch: { provider?: string; model?: string }): Promise<void> {
+  updateSession(
+    id: string,
+    patch: { provider?: string; model?: string; permissionMode?: PermissionMode },
+  ): Promise<void> {
     const s = this.sessions.get(id);
     if (s) {
       if (patch.provider !== undefined) s.provider = patch.provider;
       if (patch.model !== undefined) s.model = patch.model;
+      if (patch.permissionMode !== undefined) s.permissionMode = patch.permissionMode;
       s.updatedAt = Date.now();
     }
     return Promise.resolve();

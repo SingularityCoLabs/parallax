@@ -52,7 +52,15 @@ protocol, observability → (leaves)
 - **runtime** — the turn loop and everything that coordinates the above.
 - **app** — the composition root; wires concrete instances and exposes
   `createRuntime`, `defaultToolset`, and the demo/sessions helpers.
-- **cli** — renders events, prompts for approvals. No provider/tool/DB logic.
+- **cli** — renders events, prompts for approvals. No provider/tool/DB logic. Two
+  front-ends over the same event stream: a plain line renderer (`CliRenderer`,
+  used for non-TTY / `run` / CI) and a **React + Ink TUI** (`cli/tui/`, the default
+  on a TTY). The TUI folds `RuntimeEvent`s into a timeline via a pure reducer
+  (`cli/tui/timeline.ts`) — no runtime logic leaks into the view.
+- **config** — the layered provider/model catalog: a static base registry
+  enriched by the [models.dev](https://models.dev) catalog (fetched + disk-cached,
+  with a bundled offline snapshot) and overridden by a user `parallax.json`. The
+  merged catalog is read through synchronous accessors so nothing downstream awaits.
 
 ## The turn loop (`runtime/TurnController`)
 
@@ -101,5 +109,7 @@ Compaction never destroys persisted history — it only changes the model-visibl
 
 Swap or add without touching the loop: a real `ModelProvider`; a sandboxed
 `Executor` (bubblewrap/seatbelt/container/remote); more `ToolDefinition`s
-(MCP adapters, web, a dedicated `python` tool); an alternate `SessionStore`; and a
-second UI client (TUI, desktop, IDE, headless) subscribing to the same events.
+(MCP adapters, web, a dedicated `python` tool); an alternate `SessionStore`; and
+additional UI clients (the Ink TUI and the plain renderer already both subscribe
+to the same event stream — a desktop, IDE, or headless JSON client slots in the
+same way).

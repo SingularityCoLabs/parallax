@@ -28,6 +28,13 @@ export interface TurnDeps {
   approvals: ApprovalGateway;
   logger: Logger;
   maxSteps: number;
+  /**
+   * Tool names the user chose to "always allow" this session (via the
+   * `allow_always` decision). A proposed call to one of these skips the ASK
+   * barrier. Owned by the facade so it survives across turns; the controller
+   * only reads it and adds to it.
+   */
+  grantedTools: Set<string>;
 }
 
 export interface TurnContext {
@@ -259,8 +266,9 @@ export class TurnController {
       return;
     }
 
-    // 5. Approval barrier for ASK (blueprint §9.2, §16).
-    if (decision.kind === 'ask') {
+    // 5. Approval barrier for ASK (blueprint §9.2, §16). A prior `allow_always`
+    // for this tool in the session skips the barrier entirely.
+    if (decision.kind === 'ask' && !this.d.grantedTools.has(tool.name)) {
       const req = decision.approval;
       // Register the waiter BEFORE emitting the request, so a synchronous
       // responder (fast UI / test) that resolves during emit is not lost.
@@ -275,6 +283,8 @@ export class TurnController {
         createdAt: Date.now(),
       });
       const outcome = await wait;
+      // "Always allow" → remember so this tool won't prompt again this session.
+      if (outcome === 'allow_always') this.d.grantedTools.add(tool.name);
       await this.emit(ctx, {
         type: 'approval.resolved',
         turnId: ctx.turnId,

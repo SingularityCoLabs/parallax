@@ -1,4 +1,10 @@
-import { getProvider, listProviders, resolveApiKey, type ProviderInfo } from '../config/index.ts';
+import {
+  getProvider,
+  listProviders,
+  resolveApiKey,
+  type ModelInfo,
+  type ProviderInfo,
+} from '../config/index.ts';
 
 /** A parsed REPL slash command. `none` means the line is an ordinary message. */
 export type ReplCommand =
@@ -66,7 +72,8 @@ export function parseModelSelector(arg: string, currentProvider: string): ModelS
 /** One-line status marker for whether a provider's API key is resolvable. */
 function keyStatus(info: ProviderInfo): string {
   if (info.wire === 'fake') return '';
-  return resolveApiKey(info.id) ? ' [key ✓]' : ' [no key]';
+  const key = resolveApiKey(info.id) ? ' [key ✓]' : ' [no key]';
+  return info.supported ? key : ' [unsupported]';
 }
 
 /** Render the provider list for `/providers`, marking the current one. */
@@ -78,6 +85,21 @@ export function formatProviders(currentProvider: string): string {
   return ['providers (* = current):', ...lines].join('\n');
 }
 
+/** Compact "$in/$out per 1M" price tag, or '' when unknown/free. */
+function priceTag(info: ModelInfo): string {
+  if (!info.cost || (info.cost.input === 0 && info.cost.output === 0)) return '';
+  return ` $${info.cost.input}/${info.cost.output}`;
+}
+
+/** Compact context-window tag like "200k" / "1M", or '' when unknown. */
+function contextTag(info: ModelInfo): string {
+  const c = info.limitContext;
+  if (!c) return '';
+  if (c >= 1_000_000) return ` ${c / 1_000_000}M ctx`;
+  if (c >= 1_000) return ` ${Math.round(c / 1_000)}k ctx`;
+  return ` ${c} ctx`;
+}
+
 /** Render the curated model list for a provider (`/models [provider]`). */
 export function formatModels(providerId: string, currentModel?: string): string {
   const info = getProvider(providerId);
@@ -87,7 +109,9 @@ export function formatModels(providerId: string, currentModel?: string): string 
   }
   const lines = info.models.map((m) => {
     const marker = m === currentModel ? '*' : ' ';
-    return `  ${marker} ${m}`;
+    const meta = info.modelInfo?.[m];
+    const detail = meta ? `${priceTag(meta)}${contextTag(meta)}` : '';
+    return `  ${marker} ${m.padEnd(34)}${detail}`;
   });
   return [`${info.id} models (* = current):`, ...lines].join('\n');
 }

@@ -52,6 +52,8 @@ export class RuntimeFacade {
   private readonly approvals: ApprovalGateway;
   private readonly scheduler = new Scheduler();
   private readonly activeTurns = new Map<string, ActiveTurn>();
+  /** Tools the user chose to "always allow", per session (blueprint §16). */
+  private readonly grantedTools = new Map<string, Set<string>>();
 
   constructor(config: RuntimeConfig) {
     this.cfg = config;
@@ -75,6 +77,26 @@ export class RuntimeFacade {
    */
   setModelProvider(provider: ModelProvider): void {
     this.cfg.provider = provider;
+  }
+
+  /**
+   * Change a session's permission mode for subsequent turns (blueprint §16.3).
+   * Persisted on the session record; `TurnController` reads it fresh each turn,
+   * so an in-flight turn keeps its mode and the next turn uses the new one. This
+   * is what the TUI's Shift+Tab (workspace → plan → read-only) drives.
+   */
+  async setPermissionMode(sessionId: string, mode: PermissionMode): Promise<void> {
+    await this.cfg.store.updateSession(sessionId, { permissionMode: mode });
+  }
+
+  /** The per-session "always allow" grant set, created on first use. */
+  private grantsFor(sessionId: string): Set<string> {
+    let set = this.grantedTools.get(sessionId);
+    if (!set) {
+      set = new Set<string>();
+      this.grantedTools.set(sessionId, set);
+    }
+    return set;
   }
 
   async createSession(options: CreateSessionOptions): Promise<SessionRecord> {
@@ -126,6 +148,14 @@ export class RuntimeFacade {
   }
 
   /**
+   * Cancel whatever turn is currently active for a session, if any. A UI that
+   * doesn't track turn ids (the TUI) uses this for its Esc/Ctrl-C interrupt.
+   */
+  cancelActiveTurn(sessionId: string): void {
+    this.activeTurns.get(sessionId)?.controller.abort();
+  }
+
+  /**
    * Run one turn to completion. Persists the user message, drives the loop, and
    * always resolves — cancellation and failures are reported as terminal events,
    * not thrown to the caller.
@@ -164,6 +194,7 @@ export class RuntimeFacade {
       approvals: this.approvals,
       logger: log,
       maxSteps: this.cfg.maxSteps,
+      grantedTools: this.grantsFor(sessionId),
     });
 
     try {
