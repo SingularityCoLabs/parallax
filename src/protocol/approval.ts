@@ -1,10 +1,20 @@
 import { z } from 'zod';
 import { toolRiskSchema, type ToolRisk } from './risk.ts';
 
-/** How a human (or policy) resolved an ASK decision. */
-export type ApprovalDecision = 'allow_once' | 'deny';
+/**
+ * How a human (or policy) resolved an ASK decision.
+ * - `allow_once`: permit this one action.
+ * - `allow_always`: permit and *remember* — subsequent calls to the same tool in
+ *   this session skip the ASK barrier (Claude Code's "don't ask again").
+ * - `deny`: refuse this action.
+ */
+export type ApprovalDecision = 'allow_once' | 'allow_always' | 'deny';
 
-export const approvalDecisionSchema: z.ZodType<ApprovalDecision> = z.enum(['allow_once', 'deny']);
+export const approvalDecisionSchema: z.ZodType<ApprovalDecision> = z.enum([
+  'allow_once',
+  'allow_always',
+  'deny',
+]);
 
 /**
  * Everything a UI needs to render an approval prompt for a proposed side effect

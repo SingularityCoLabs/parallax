@@ -75,6 +75,13 @@ const cases: Case[] = [
     risk: 'external_write',
     expected: 'ask',
   },
+
+  // plan mode: gates identically to read-only (allow reads, deny side effects).
+  { name: 'plan + read', mode: 'plan', risk: 'read', expected: 'allow' },
+  { name: 'plan + write', mode: 'plan', risk: 'write', expected: 'deny' },
+  { name: 'plan + destructive', mode: 'plan', risk: 'destructive', expected: 'deny' },
+  { name: 'plan + network', mode: 'plan', risk: 'network', expected: 'deny' },
+  { name: 'plan + external_write', mode: 'plan', risk: 'external_write', expected: 'deny' },
 ];
 
 describe('PolicyEngine decision table', () => {

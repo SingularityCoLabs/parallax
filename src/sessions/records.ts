@@ -60,7 +60,7 @@ export interface ApprovalRecord {
   sessionId: string;
   turnId: string;
   toolCallId: string;
-  decision: 'allow_once' | 'deny';
+  decision: 'allow_once' | 'allow_always' | 'deny';
   createdAt: number;
   resolvedAt?: number;
 }

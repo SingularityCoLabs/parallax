@@ -67,7 +67,9 @@ const boundaryConfigs = Object.entries(ALLOW).map(([layer, allowed]) => {
 });
 
 export default tseslint.config(
-  { ignores: ['node_modules', 'dist', 'coverage', '**/*.d.ts', 'tests/fixtures/**'] },
+  {
+    ignores: ['node_modules', 'dist', 'coverage', 'claude-code', '**/*.d.ts', 'tests/fixtures/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

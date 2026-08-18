@@ -6,7 +6,7 @@ import { loadConfig, databasePath } from '../config/index.ts';
 import type { ApprovalDecision } from '../protocol/index.ts';
 import { VERSION } from '../version.ts';
 import { CliRenderer } from './renderer.ts';
-import { runGoal, chatLoop, type AgentCliOptions } from './agentRunner.ts';
+import { runGoal, chatLoop, resumeChat, type AgentCliOptions } from './agentRunner.ts';
 import { runUninstall } from './uninstallRunner.ts';
 import { SetupRequiredError } from './setupGuidance.ts';
 
@@ -163,8 +163,27 @@ program
 program
   .command('resume')
   .argument('<sessionId>', 'session id (or its 8-char prefix)')
-  .description('Replay a persisted session transcript.')
-  .action(async (sessionId: string) => {
+  .option('-C, --cwd <dir>', 'workspace directory', process.cwd())
+  .option('--print', 'replay the transcript to stdout instead of reopening it interactively', false)
+  .description('Reopen a persisted session in the interactive UI (or --print to replay it).')
+  .action(async (sessionId: string, opts: { cwd: string; print: boolean }) => {
+    // On a real terminal, reopen the session in the TUI seeded with its
+    // transcript so the conversation can continue. `--print` (or a non-TTY)
+    // keeps the line-oriented replay.
+    if (!opts.print && process.stdin.isTTY && process.stdout.isTTY) {
+      const resumed = await resumeChat(sessionId, {
+        cwd: opts.cwd,
+        readOnly: false,
+        yes: false,
+        persist: true,
+      });
+      if (!resumed) {
+        process.stderr.write(`Session not found: ${sessionId}\n`);
+        process.exitCode = 1;
+      }
+      return;
+    }
+
     const renderer = new CliRenderer();
     // Allow an 8-char prefix for convenience.
     let id = sessionId;

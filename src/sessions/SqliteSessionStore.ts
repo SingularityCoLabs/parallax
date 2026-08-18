@@ -4,6 +4,7 @@ import {
   newSessionId,
   newTurnId,
   parseRuntimeEvent,
+  type PermissionMode,
   type RuntimeEvent,
 } from '../protocol/index.ts';
 import { runMigrations } from './migrations.ts';
@@ -119,15 +120,21 @@ export class SqliteSessionStore implements SessionStore {
     return Promise.resolve();
   }
 
-  updateSession(id: string, patch: { provider?: string; model?: string }): Promise<void> {
+  updateSession(
+    id: string,
+    patch: { provider?: string; model?: string; permissionMode?: PermissionMode },
+  ): Promise<void> {
     // COALESCE keeps the current value when a field isn't being changed.
     this.db
       .prepare(
         `UPDATE sessions
-         SET provider = COALESCE(?, provider), model = COALESCE(?, model), updated_at = ?
+         SET provider = COALESCE(?, provider),
+             model = COALESCE(?, model),
+             permission_mode = COALESCE(?, permission_mode),
+             updated_at = ?
          WHERE id = ?`,
       )
-      .run(nn(patch.provider), nn(patch.model), Date.now(), id);
+      .run(nn(patch.provider), nn(patch.model), nn(patch.permissionMode), Date.now(), id);
     return Promise.resolve();
   }
 

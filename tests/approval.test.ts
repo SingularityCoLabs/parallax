@@ -30,7 +30,10 @@ interface Harness {
   events: RuntimeEvent[];
 }
 
-function harness(steps: FakeStep[], autoDecision: 'allow_once' | 'deny' | 'none'): Harness {
+function harness(
+  steps: FakeStep[],
+  autoDecision: 'allow_once' | 'allow_always' | 'deny' | 'none',
+): Harness {
   const store = new InMemorySessionStore();
   const fileState = new FileStateCache();
   const provider = new FakeModelProvider(steps);
@@ -143,5 +146,55 @@ describe('approval flow at the runtime level', () => {
     const failed = h.events.find((e) => e.type === 'tool.failed');
     if (failed?.type === 'tool.failed') expect(failed.result.error?.code).toBe('permission_denied');
     expect(existsSync(join(root, 'src', 'new.ts'))).toBe(false);
+  });
+
+  it('plan mode technically blocks a write (deny, never asks)', async () => {
+    const h = harness(
+      [
+        [
+          modelToolCall(
+            'write_file',
+            { path: 'src/plan.ts', content: 'export const p = 1;\n' },
+            'w1',
+          ),
+        ],
+        [modelText('here is my plan; I will not write yet')],
+      ],
+      'none',
+    );
+    const session = await h.facade.createSession({ cwd: root, permissionMode: 'plan' });
+    await h.facade.startTurn(session.id, 'plan a change');
+
+    expect(h.events.some((e) => e.type === 'approval.requested')).toBe(false);
+    const failed = h.events.find((e) => e.type === 'tool.failed');
+    if (failed?.type === 'tool.failed') expect(failed.result.error?.code).toBe('permission_denied');
+    expect(existsSync(join(root, 'src', 'plan.ts'))).toBe(false);
+  });
+
+  it('allow_always remembers the tool: a later same-tool call is not re-prompted', async () => {
+    // Two writes in sequence. The first is approved with allow_always; the second
+    // must execute WITHOUT a second approval.requested (write_file has no
+    // read-before-write requirement, so this isolates the grant behavior).
+    const h = harness(
+      [
+        [modelToolCall('write_file', { path: 'src/a.ts', content: 'export const a = 1;\n' }, 'w1')],
+        [modelToolCall('write_file', { path: 'src/b.ts', content: 'export const b = 2;\n' }, 'w2')],
+        [modelText('done')],
+      ],
+      'allow_always',
+    );
+    const session = await h.facade.createSession({ cwd: root, permissionMode: 'workspace' });
+    await h.facade.startTurn(session.id, 'write twice');
+
+    // Only ONE approval was requested across both writes.
+    const requests = h.events.filter((e) => e.type === 'approval.requested');
+    expect(requests).toHaveLength(1);
+    const resolved = h.events.find((e) => e.type === 'approval.resolved');
+    if (resolved?.type === 'approval.resolved') expect(resolved.decision).toBe('allow_always');
+    // Both writes executed.
+    const starts = h.events.filter((e) => e.type === 'tool.started' && e.toolName === 'write_file');
+    expect(starts).toHaveLength(2);
+    expect(readFileSync(join(root, 'src', 'a.ts'), 'utf8')).toContain('a = 1');
+    expect(readFileSync(join(root, 'src', 'b.ts'), 'utf8')).toContain('b = 2');
   });
 });
