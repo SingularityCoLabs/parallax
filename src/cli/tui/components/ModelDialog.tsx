@@ -92,9 +92,7 @@ export function ModelDialog({
     : undefined;
   const presetNeedsKey = preset !== undefined && !hasKey(preset.id);
 
-  const [step, setStep] = useState<Step>(
-    preset ? (presetNeedsKey ? 'key' : 'model') : 'provider',
-  );
+  const [step, setStep] = useState<Step>(preset ? (presetNeedsKey ? 'key' : 'model') : 'provider');
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState(0);
   const [providerId, setProviderId] = useState(preset?.id ?? '');
@@ -103,7 +101,9 @@ export function ModelDialog({
   const [hint, setHint] = useState('');
   // The model chosen while we detour through the key step (its default when we
   // jumped straight to key entry for a preset provider).
-  const [pendingModel, setPendingModel] = useState(presetNeedsKey ? (preset?.defaultModel ?? '') : '');
+  const [pendingModel, setPendingModel] = useState(
+    presetNeedsKey ? (preset?.defaultModel ?? '') : '',
+  );
 
   const provider = useMemo(
     () => providers.find((p) => p.id === providerId),
@@ -121,8 +121,7 @@ export function ModelDialog({
   }, [provider, filter]);
   // On an OpenAI-/Anthropic-wire provider any model id is valid on the wire, so a
   // non-matching filter becomes an explicit "use what I typed" row.
-  const allowCustomModel =
-    filter.trim() !== '' && !modelRows.some((m) => m === filter.trim());
+  const allowCustomModel = filter.trim() !== '' && !modelRows.some((m) => m === filter.trim());
 
   const resetList = (): void => {
     setFilter('');
@@ -261,12 +260,7 @@ export function ModelDialog({
           </Box>
 
           {step === 'provider' ? (
-            <ProviderList
-              theme={theme}
-              rows={providerRows}
-              selected={selected}
-              hasKey={hasKey}
-            />
+            <ProviderList theme={theme} rows={providerRows} selected={selected} hasKey={hasKey} />
           ) : (
             <ModelList
               theme={theme}
@@ -316,11 +310,7 @@ function ProviderList({
         const active = idx === selected;
         const keyed = hasKey(p.id);
         const statusGlyph = !p.supported ? '·' : keyed ? glyphs.check : glyphs.cross;
-        const statusColor = !p.supported
-          ? theme.subtle
-          : keyed
-            ? theme.success
-            : theme.warning;
+        const statusColor = !p.supported ? theme.subtle : keyed ? theme.success : theme.warning;
         return (
           <Box key={p.id}>
             <Text color={active ? theme.accent : theme.subtle}>{active ? '❯ ' : '  '}</Text>

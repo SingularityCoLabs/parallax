@@ -75,10 +75,11 @@ pnpm test
 
 ## Releases
 
-Maintainers should follow the [release guide](docs/releasing.md). Every merge to
-`main` automatically selects the next package version, verifies the artifact,
-publishes it, and creates the matching tag and GitHub Release. Do not bump normal
-beta versions or create GitHub Releases manually.
+Maintainers should follow the [release guide](docs/releasing.md). After a merge
+to `main` passes the complete main CI matrix, it automatically selects the next
+package version, verifies and publishes the artifact, and creates the matching
+tag and GitHub Release. Do not bump normal beta versions or create GitHub
+Releases manually.
 
 ## Licensing
 
