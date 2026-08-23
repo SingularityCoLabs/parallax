@@ -16,12 +16,7 @@ export {
   credentialsPath,
   localConfigPaths,
 } from './paths.ts';
-export {
-  loadCredentials,
-  getCredential,
-  saveCredential,
-  type Credentials,
-} from './credentials.ts';
+export { loadCredentials, getCredential, saveCredential, type Credentials } from './credentials.ts';
 export {
   PROVIDERS,
   BASE_PROVIDERS,

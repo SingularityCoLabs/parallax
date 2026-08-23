@@ -5,7 +5,7 @@ Parallax uses two release paths in
 
 | Branch        | Trigger                  | npm dist-tag | Purpose               |
 | ------------- | ------------------------ | ------------ | --------------------- |
-| `main`        | Every push or PR merge   | `next`       | Public beta releases  |
+| `main`        | Successful main CI run   | `next`       | Public beta releases  |
 | `development` | Manual workflow dispatch | `dev`        | Development snapshots |
 
 Daily work belongs on `development`. Promote tested work to `main` with a pull
@@ -25,8 +25,10 @@ GitHub Actions must be allowed to create the generated release commit.
 
 ## Automatic releases from `main`
 
-Every new `main` push must either complete a release or fail visibly. A main run
-no longer succeeds by silently skipping an already-published version.
+Every new `main` push runs the complete CI matrix first. The publish workflow is
+triggered only after that exact main commit passes CI; a failed or cancelled CI
+run cannot publish an npm package. Once started, the release must complete or
+fail visibly instead of silently skipping an already-published version.
 
 The version in `package.json` selects the release line:
 
@@ -71,8 +73,9 @@ git push origin development
 ```
 
 Open a pull request from `development` to `main`, wait for CI, review it, and
-merge it. The resulting main push automatically creates the next npm release.
-No manual version-bump commit is needed for a normal beta.
+merge it. The merge runs CI again on the exact main commit. Its successful
+completion automatically triggers the next npm release. No manual version-bump
+commit is needed for a normal beta.
 
 Follow the release live:
 
@@ -139,6 +142,12 @@ npx --yes @singularitycolabs/parallax@dev --version
 ```
 
 ## Failure handling
+
+### Main CI fails
+
+The publish workflow does not start, so no version, tag, or npm package is
+created. Fix the validation failure on `development`, wait for its CI to pass,
+and promote the correction to `main`.
 
 ### Verification fails
 

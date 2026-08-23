@@ -1,11 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type { ApprovalDecision, PermissionMode, RuntimeEvent } from '../../protocol/index.ts';
-import {
-  applyModelSelection,
-  MissingApiKeyError,
-  type Agent,
-} from '../../app/index.ts';
+import { applyModelSelection, MissingApiKeyError, type Agent } from '../../app/index.ts';
 import {
   getProvider,
   listProviders,
@@ -166,9 +162,7 @@ export function App(props: AppProps): React.ReactElement {
         if (err instanceof MissingApiKeyError) {
           // No key on this path — offer the dialog to enter one, preset to the
           // provider the user asked for.
-          pushSystem(
-            `${sel.provider} needs an API key. Opening /model to configure it…`,
-          );
+          pushSystem(`${sel.provider} needs an API key. Opening /model to configure it…`);
           openDialog(sel.provider);
           return;
         }

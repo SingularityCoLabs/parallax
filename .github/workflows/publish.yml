@@ -1,7 +1,11 @@
 name: Publish package
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:
@@ -10,13 +14,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.workflow }}-${{ github.ref }}
+  group: publish-${{ github.workflow }}-${{ github.event.workflow_run.head_sha || github.ref }}
   cancel-in-progress: false
 
 jobs:
   publish-main:
     name: Publish main release to npm
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: >-
+      ${{ github.event_name == 'workflow_run' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment:
       name: npm
@@ -28,6 +36,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -51,6 +60,8 @@ jobs:
       - name: Select the release version
         id: release
         shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
 
@@ -69,8 +80,8 @@ jobs:
             candidate_parent="$(git rev-parse "${candidate_commit}^" 2>/dev/null || true)"
             candidate_subject="$(git log -1 --format=%s "${candidate_commit}")"
 
-            if [[ "${candidate_commit}" == "${GITHUB_SHA}" ]] || \
-              [[ "${candidate_parent}" == "${GITHUB_SHA}" && \
+            if [[ "${candidate_commit}" == "${SOURCE_SHA}" ]] || \
+              [[ "${candidate_parent}" == "${SOURCE_SHA}" && \
                 "${candidate_subject}" == "chore(release): ${candidate_tag} [skip ci]" ]]; then
               release_tag="${candidate_tag}"
               release_commit="${candidate_commit}"
@@ -98,7 +109,7 @@ jobs:
 
             if git show-ref --verify --quiet "refs/tags/${release_tag}"; then
               tag_commit="$(git rev-list -n 1 "${release_tag}")"
-              echo "${release_tag} already belongs to ${tag_commit}, not ${GITHUB_SHA}." >&2
+              echo "${release_tag} already belongs to ${tag_commit}, not ${SOURCE_SHA}." >&2
               exit 1
             fi
 
