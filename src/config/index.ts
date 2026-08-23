@@ -9,7 +9,19 @@ export {
   type ProviderName,
 } from './schema.ts';
 export { loadConfig, resolveApiKey } from './loadConfig.ts';
-export { configHome, databasePath, modelsCachePath, localConfigPaths } from './paths.ts';
+export {
+  configHome,
+  databasePath,
+  modelsCachePath,
+  credentialsPath,
+  localConfigPaths,
+} from './paths.ts';
+export {
+  loadCredentials,
+  getCredential,
+  saveCredential,
+  type Credentials,
+} from './credentials.ts';
 export {
   PROVIDERS,
   BASE_PROVIDERS,

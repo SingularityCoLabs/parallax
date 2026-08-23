@@ -42,6 +42,8 @@ export interface WelcomeBannerProps {
   cwd: string;
   /** Color of the leading `✻` mark; defaults to the accent (the intro pulses it). */
   markColor?: string;
+  /** No usable model configured yet — show a call to action instead of provider:model. */
+  needsSetup?: boolean;
 }
 
 export function WelcomeBanner({
@@ -52,6 +54,7 @@ export function WelcomeBanner({
   mode,
   cwd,
   markColor,
+  needsSetup,
 }: WelcomeBannerProps): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -73,11 +76,20 @@ export function WelcomeBanner({
 
       <Box>
         <Text color={theme.subtle}>{'  '}</Text>
-        <Text color={theme.accent}>
-          {provider}:{model}
-        </Text>
-        <Text color={theme.subtle}> · </Text>
-        <Text color={modeColor(mode, theme)}>{mode}</Text>
+        {needsSetup ? (
+          <Text color={theme.warning}>
+            {provider === 'fake' ? 'no model configured' : `${provider} (needs key)`} · type /model
+            to set one up
+          </Text>
+        ) : (
+          <>
+            <Text color={theme.accent}>
+              {provider}:{model}
+            </Text>
+            <Text color={theme.subtle}> · </Text>
+            <Text color={modeColor(mode, theme)}>{mode}</Text>
+          </>
+        )}
       </Box>
 
       <Box>

@@ -14,6 +14,9 @@ function modeColor(mode: string, theme: Theme): string {
  * The status footer beneath the prompt: provider:model, permission mode, a
  * running-cost hint, and the key hints. Mirrors Claude Code's
  * PromptInputFooter — compact, dim, single line.
+ *
+ * When `needsSetup` (no usable model yet), the provider:model slot is replaced
+ * with a call to action so the state is obvious at a glance.
  */
 export function Footer({
   theme,
@@ -22,6 +25,7 @@ export function Footer({
   mode,
   usage,
   active,
+  needsSetup,
 }: {
   theme: Theme;
   provider: string;
@@ -29,14 +33,21 @@ export function Footer({
   mode: string;
   usage: { input: number; output: number };
   active: boolean;
+  needsSetup?: boolean;
 }): React.ReactElement {
   const tokens = usage.input + usage.output;
   return (
     <Box justifyContent="space-between" paddingX={1}>
       <Box>
-        <Text color={theme.accent}>
-          {provider}:{model}
-        </Text>
+        {needsSetup ? (
+          <Text color={theme.warning}>
+            {provider === 'fake' ? 'no model' : `${provider} (needs key)`} · /model to configure
+          </Text>
+        ) : (
+          <Text color={theme.accent}>
+            {provider}:{model}
+          </Text>
+        )}
         <Text color={theme.subtle}> · </Text>
         <Text color={modeColor(mode, theme)}>{mode}</Text>
         {tokens > 0 && <Text color={theme.subtle}> · {tokens} tok</Text>}

@@ -17,6 +17,11 @@ export interface TuiOptions {
   themeName?: ThemeName;
   /** Prior events to seed the timeline (resuming a persisted session). */
   seedEvents?: RuntimeEvent[];
+  /**
+   * Open with no working model configured: the App shows the `/model` dialog and
+   * gates turns until a provider is chosen. See `buildAgentOrFallback`.
+   */
+  needsSetup?: boolean;
 }
 
 /**
@@ -44,6 +49,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
       // Play the launch-splash intro only on a fresh start. A resumed session
       // (seeded with a transcript) skips it and renders the banner frozen.
       animateIntro={!options.seedEvents}
+      {...(options.needsSetup ? { needsSetup: true } : {})}
     />,
     { exitOnCtrlC: false }, // we handle Ctrl-C ourselves (cancel turn vs quit)
   );

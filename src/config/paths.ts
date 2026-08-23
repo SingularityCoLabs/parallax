@@ -16,6 +16,15 @@ export function modelsCachePath(): string {
 }
 
 /**
+ * Where the optional API-key store lives (overridable via env). Derived from
+ * `configHome()` so a redirected `PARALLAX_HOME` (as tests use) also isolates
+ * credentials — no real key can leak into a test run. See `credentials.ts`.
+ */
+export function credentialsPath(): string {
+  return process.env.PARALLAX_CREDENTIALS ?? join(configHome(), 'credentials.json');
+}
+
+/**
  * Candidate `parallax.json` config paths, in *increasing* precedence: the user
  * config in `~/.parallax`, then a project-local file in the current directory.
  * A project file overrides the user file (blueprint §28.3).
