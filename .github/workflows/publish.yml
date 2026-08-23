@@ -48,63 +48,110 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Inspect release state
+      - name: Select the release version
         id: release
+        shell: bash
         run: |
+          set -euo pipefail
+
           package_name="$(node -p "require('./package.json').name")"
-          package_version="$(node -p "require('./package.json').version")"
-          release_tag="v${package_version}"
-          published_version="$(npm view "${package_name}@${package_version}" version 2>/dev/null || true)"
+          current_version="$(node -p "require('./package.json').version")"
 
-          git fetch --force --tags origin
-          tag_commit=""
-          if git show-ref --verify --quiet "refs/tags/${release_tag}"; then
-            tag_commit="$(git rev-list -n 1 "${release_tag}")"
-          fi
+          git fetch --force --tags origin main
 
-          if [[ "${published_version}" == "${package_version}" ]]; then
-            if [[ "${tag_commit}" == "${GITHUB_SHA}" ]]; then
-              release_mode=resume
-            else
-              release_mode=skip
+          # A rerun may start from the original main push after an earlier
+          # attempt already created its release commit and tag. Reuse that
+          # release instead of calculating and publishing another version.
+          release_tag=""
+          release_commit=""
+          while IFS= read -r candidate_tag; do
+            candidate_commit="$(git rev-list -n 1 "${candidate_tag}")"
+            candidate_parent="$(git rev-parse "${candidate_commit}^" 2>/dev/null || true)"
+            candidate_subject="$(git log -1 --format=%s "${candidate_commit}")"
+
+            if [[ "${candidate_commit}" == "${GITHUB_SHA}" ]] || \
+              [[ "${candidate_parent}" == "${GITHUB_SHA}" && \
+                "${candidate_subject}" == "chore(release): ${candidate_tag} [skip ci]" ]]; then
+              release_tag="${candidate_tag}"
+              release_commit="${candidate_commit}"
+              break
             fi
+          done < <(git tag --sort=-version:refname --list 'v*')
+
+          if [[ -n "${release_tag}" ]]; then
+            package_version="${release_tag#v}"
+            git checkout --detach "${release_commit}"
+            npm version "${package_version}" --no-git-tag-version --allow-same-version
+            release_mode=resume
+            tag_exists=true
           else
-            if [[ -n "${tag_commit}" && "${tag_commit}" != "${GITHUB_SHA}" ]]; then
-              echo "${release_tag} already points to ${tag_commit}, not ${GITHUB_SHA}." >&2
+            published_versions="[]"
+            if registry_versions="$(npm view "${package_name}" versions --json 2>/dev/null)"; then
+              published_versions="${registry_versions}"
+            fi
+
+            package_version="$(
+              printf '%s' "${published_versions}" |
+                node scripts/next-release-version.mjs "${current_version}"
+            )"
+            release_tag="v${package_version}"
+
+            if git show-ref --verify --quiet "refs/tags/${release_tag}"; then
+              tag_commit="$(git rev-list -n 1 "${release_tag}")"
+              echo "${release_tag} already belongs to ${tag_commit}, not ${GITHUB_SHA}." >&2
               exit 1
             fi
-            release_mode=publish
+
+            npm version "${package_version}" --no-git-tag-version --allow-same-version
+            release_mode=new
+            tag_exists=false
+          fi
+
+          published_version="$(npm view "${package_name}@${package_version}" version 2>/dev/null || true)"
+          if [[ "${published_version}" == "${package_version}" ]]; then
+            needs_publish=false
+          else
+            needs_publish=true
           fi
 
           echo "mode=${release_mode}" >> "${GITHUB_OUTPUT}"
           echo "package_name=${package_name}" >> "${GITHUB_OUTPUT}"
           echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
           echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-          echo "tag_exists=$([[ -n "${tag_commit}" ]] && echo true || echo false)" >> "${GITHUB_OUTPUT}"
+          echo "tag_exists=${tag_exists}" >> "${GITHUB_OUTPUT}"
+          echo "needs_publish=${needs_publish}" >> "${GITHUB_OUTPUT}"
 
-          if [[ "${release_mode}" == "skip" ]]; then
-            echo "${package_name}@${package_version} is already published from an earlier commit; nothing to release."
-          fi
+          echo "Selected ${package_name}@${package_version} (${release_mode})."
 
       - name: Verify release artifact
-        if: ${{ steps.release.outputs.mode == 'publish' }}
+        if: ${{ steps.release.outputs.needs_publish == 'true' }}
         run: pnpm verify:release
 
-      - name: Create release tag
-        if: ${{ steps.release.outputs.mode == 'publish' && steps.release.outputs.tag_exists == 'false' }}
+      - name: Record the release version and tag
+        if: ${{ steps.release.outputs.tag_exists == 'false' }}
         env:
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add package.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): ${RELEASE_TAG} [skip ci]"
+          fi
+
           git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}"
-          git push origin "${RELEASE_TAG}"
+          git push --atomic origin "HEAD:refs/heads/main" "refs/tags/${RELEASE_TAG}"
 
       - name: Publish to npm with provenance
-        if: ${{ steps.release.outputs.mode == 'publish' }}
+        if: ${{ steps.release.outputs.needs_publish == 'true' }}
         env:
           PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
         run: |
+          set -euo pipefail
+
           if [[ "${PACKAGE_VERSION}" == *-* ]]; then
             npm_tag=next
           else
@@ -113,7 +160,6 @@ jobs:
           npm publish --provenance --tag "${npm_tag}" --access public
 
       - name: Create GitHub Release
-        if: ${{ steps.release.outputs.mode != 'skip' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
@@ -134,6 +180,17 @@ jobs:
             release_flags+=(--prerelease)
           fi
           gh release create "${RELEASE_TAG}" "${release_flags[@]}"
+
+      - name: Summarize main publication
+        env:
+          PACKAGE_NAME: ${{ steps.release.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          RELEASE_MODE: ${{ steps.release.outputs.mode }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          printf 'Released `%s@%s` from `main` with Git tag `%s` (mode: `%s`).\n' \
+            "${PACKAGE_NAME}" "${PACKAGE_VERSION}" "${RELEASE_TAG}" "${RELEASE_MODE}" \
+            >> "${GITHUB_STEP_SUMMARY}"
 
   validate-development-publish:
     name: Validate development publish request

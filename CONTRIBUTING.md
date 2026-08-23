@@ -75,9 +75,10 @@ pnpm test
 
 ## Releases
 
-Maintainers should follow the [release guide](docs/releasing.md). A new package
-version merged into `main` is verified, tagged, and published automatically; do
-not create GitHub Releases manually.
+Maintainers should follow the [release guide](docs/releasing.md). Every merge to
+`main` automatically selects the next package version, verifies the artifact,
+publishes it, and creates the matching tag and GitHub Release. Do not bump normal
+beta versions or create GitHub Releases manually.
 
 ## Licensing
 
