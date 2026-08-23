@@ -51,7 +51,6 @@
     "verify": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test",
     "test:package": "node scripts/test-package.mjs",
     "verify:release": "pnpm verify && pnpm test:package",
-    "version:beta": "npm version prerelease --preid=beta --no-git-tag-version",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm verify:release"
   },
