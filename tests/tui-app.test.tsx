@@ -43,7 +43,7 @@ function makeAgent(steps: FakeStep[]): Agent {
   return { facade, store };
 }
 
-function renderApp(agent: Agent, sessionId: string) {
+function renderApp(agent: Agent, sessionId: string, animateIntro = false) {
   const config = defaultConfig();
   return render(
     <App
@@ -54,6 +54,7 @@ function renderApp(agent: Agent, sessionId: string) {
       initialModel="fake-1"
       initialMode="workspace"
       cwd="/demo/project"
+      animateIntro={animateIntro}
     />,
   );
 }
@@ -77,11 +78,28 @@ describe('TUI App render', () => {
     const { lastFrame, unmount } = renderApp(agent, session.id);
     await tick();
     const frame = lastFrame() ?? '';
-    expect(frame).toContain('Parallax');
+    // The launch banner: wordmark greeting + working directory.
+    expect(frame).toContain('Welcome to Parallax');
     expect(frame).toContain('/demo/project');
     // Footer shows provider:model and the permission mode.
     expect(frame).toContain('fake:fake-1');
     expect(frame).toContain('workspace');
+    unmount();
+  });
+
+  it('plays the intro then settles the banner into the header', async () => {
+    const agent = makeAgent([[modelText('hi')]]);
+    const session = await agent.facade.createSession({
+      cwd: '/demo/project',
+      permissionMode: 'workspace',
+    });
+    const { lastFrame, unmount } = renderApp(agent, session.id, /* animateIntro */ true);
+    // The greeting is present during the animated intro...
+    await tick();
+    expect(lastFrame() ?? '').toContain('Welcome to Parallax');
+    // ...and remains once the intro finishes and it freezes into the header.
+    await tick(300);
+    expect(lastFrame() ?? '').toContain('Welcome to Parallax');
     unmount();
   });
 

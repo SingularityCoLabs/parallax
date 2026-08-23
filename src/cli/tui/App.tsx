@@ -8,6 +8,7 @@ import {
   type Agent,
 } from '../../app/index.ts';
 import { getProvider, type Config } from '../../config/index.ts';
+import { VERSION } from '../../version.ts';
 import {
   parseCommand,
   parseModelSelector,
@@ -21,6 +22,7 @@ import { useRuntimeEvents } from './useRuntimeEvents.ts';
 import { Timeline } from './components/Timeline.tsx';
 import { Footer } from './components/Footer.tsx';
 import { PromptInput } from './components/PromptInput.tsx';
+import { WelcomeBanner, AnimatedWelcome } from './components/WelcomeBanner.tsx';
 
 /** Permission-mode cycle order for Shift+Tab (Claude Code style). */
 const MODE_CYCLE: PermissionMode[] = ['workspace', 'plan', 'read-only'];
@@ -37,6 +39,11 @@ export interface AppProps {
   themeName?: ThemeName;
   /** Prior events to seed the timeline with (resuming a persisted session). */
   seedEvents?: RuntimeEvent[];
+  /**
+   * Play the launch-splash intro animation (fresh interactive start). Defaults
+   * to false so resumed sessions and tests render the banner already frozen.
+   */
+  animateIntro?: boolean;
 }
 
 /**
@@ -57,6 +64,11 @@ export function App(props: AppProps): React.ReactElement {
   const [mode, setMode] = useState<PermissionMode>(props.initialMode);
   const [systemLines, setSystemLines] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  // The launch splash animates only on a fresh interactive start; once the
+  // intro finishes (or immediately, when not animating) it freezes into the
+  // timeline's static header. `introDone` gates that transition.
+  const [introDone, setIntroDone] = useState(!props.animateIntro);
+  const finishIntro = useCallback(() => setIntroDone(true), []);
 
   const pushSystem = useCallback((text: string) => {
     setSystemLines((prev) => [...prev.slice(-40), ...text.split('\n')]);
@@ -213,25 +225,45 @@ export function App(props: AppProps): React.ReactElement {
     }
   });
 
-  const disabled = busy || state.active || state.pendingApproval !== undefined;
+  // Input is locked while the intro plays, a turn is in flight, work is being
+  // submitted, or an approval is pending.
+  const disabled = !introDone || busy || state.active || state.pendingApproval !== undefined;
   const placeholder = state.pendingApproval
     ? 'Answer the prompt above…'
     : 'Type a goal, or /help for commands';
 
+  // The launch splash. While the intro animates it lives in the dynamic frame
+  // (so the ✻ mark can pulse); once frozen it becomes the timeline's static
+  // header, printed once at the top and scrolling up as the conversation grows.
+  const banner = (
+    <WelcomeBanner
+      theme={theme}
+      version={VERSION}
+      provider={provider}
+      model={model}
+      mode={mode}
+      cwd={props.cwd}
+    />
+  );
+
   return (
     <Box flexDirection="column" paddingX={1}>
+      {!introDone && (
+        <AnimatedWelcome
+          theme={theme}
+          version={VERSION}
+          provider={provider}
+          model={model}
+          mode={mode}
+          cwd={props.cwd}
+          onDone={finishIntro}
+        />
+      )}
       <Timeline
         items={state.items}
         theme={theme}
         onDecision={resolveApproval}
-        header={
-          <Box marginBottom={1}>
-            <Text color={theme.accent} bold>
-              Parallax
-            </Text>
-            <Text color={theme.subtle}> · {props.cwd}</Text>
-          </Box>
-        }
+        {...(introDone ? { header: banner } : {})}
       />
 
       {/* System / command output (not part of the durable timeline). */}

@@ -41,6 +41,9 @@ export async function runTui(options: TuiOptions): Promise<void> {
       cwd={options.cwd}
       {...(options.themeName ? { themeName: options.themeName } : {})}
       {...(options.seedEvents ? { seedEvents: options.seedEvents } : {})}
+      // Play the launch-splash intro only on a fresh start. A resumed session
+      // (seeded with a transcript) skips it and renders the banner frozen.
+      animateIntro={!options.seedEvents}
     />,
     { exitOnCtrlC: false }, // we handle Ctrl-C ourselves (cancel turn vs quit)
   );
