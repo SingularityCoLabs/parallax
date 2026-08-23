@@ -1,6 +1,7 @@
 import { configSchema, defaultConfig, providerNameSchema, type Config } from './schema.ts';
 import { getProvider } from './providers.ts';
 import { ensureCatalog, localDefaults } from './catalog.ts';
+import { getCredential } from './credentials.ts';
 
 /**
  * Load configuration. Precedence (blueprint §28.3): defaults < `parallax.json` <
@@ -36,8 +37,11 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
  * Resolve the API key for a provider from the environment (blueprint §29).
  * `PARALLAX_API_KEY` is a provider-agnostic override checked first; otherwise
  * each of the provider's catalog `apiKeyEnv` vars is tried in order (e.g.
- * `NVIDIA_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). Keys are read here,
- * never persisted to config, so they can't leak into the session store or logs.
+ * `NVIDIA_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). As a last resort the
+ * optional on-disk credentials store (`credentials.json`, written by the
+ * `/model` dialog) is consulted — so the environment always wins and a stored
+ * key only fills the gap. Keys are read here, never persisted to `Config`, so
+ * they can't leak into the session store or logs.
  */
 export function resolveApiKey(provider: string): string | undefined {
   if (process.env.PARALLAX_API_KEY) return process.env.PARALLAX_API_KEY;
@@ -45,5 +49,5 @@ export function resolveApiKey(provider: string): string | undefined {
     const value = process.env[envVar];
     if (value) return value;
   }
-  return undefined;
+  return getCredential(provider);
 }

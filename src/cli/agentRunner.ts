@@ -5,6 +5,7 @@ import {
   applyModelSelection,
   apiKeyEnvHint,
   MissingApiKeyError,
+  UnsupportedProviderError,
   type Agent,
 } from '../app/index.ts';
 import {
@@ -105,6 +106,52 @@ function buildAgent(config: Config, options: AgentCliOptions): Agent {
   }
 }
 
+/**
+ * Build the agent for the interactive TUI, tolerating an unconfigured install.
+ * Unlike `buildAgent` (which turns a config problem into a fatal
+ * `SetupRequiredError`), this always returns a usable agent so the TUI can open
+ * and the user can configure a model from inside it via `/model`:
+ *
+ * - When the configured provider can chat and its key resolves, it's the real
+ *   agent (`needsSetup: false`).
+ * - Otherwise (provider still on `fake`, missing key, or an unsupported catalog
+ *   provider) it falls back to a `fake`-provider agent so the facade/session
+ *   exist, and reports `needsSetup: true`. The `/model` dialog then swaps in a
+ *   real provider live (history-preserving, via `applyModelSelection`).
+ *
+ * `desiredProvider`/`desiredModel` echo the *original* config so a
+ * provider that's selected-but-keyless (e.g. `anthropic` with no key) is still
+ * shown and the dialog can jump straight to key entry.
+ */
+function buildAgentOrFallback(
+  config: Config,
+  options: AgentCliOptions,
+): { agent: Agent; needsSetup: boolean; desiredProvider: string; desiredModel: string } {
+  const desiredProvider = config.provider;
+  const desiredModel = effectiveModel(config);
+  const fallback = (): Agent =>
+    createAgent({
+      config: { ...config, provider: 'fake', defaultModel: 'fake-1' },
+      ...(options.persist ? { dbPath: databasePath() } : {}),
+    });
+
+  if (!providerSupportsChat(config)) {
+    return { agent: fallback(), needsSetup: true, desiredProvider, desiredModel };
+  }
+  try {
+    const agent = buildAgent(config, options);
+    return { agent, needsSetup: false, desiredProvider, desiredModel };
+  } catch (err) {
+    // A missing key or an unsupported provider is recoverable in the TUI — open
+    // on the fake fallback and let the user pick/configure a model. Anything
+    // else is a real fault and should propagate.
+    if (err instanceof MissingApiKeyError || err instanceof UnsupportedProviderError) {
+      return { agent: fallback(), needsSetup: true, desiredProvider, desiredModel };
+    }
+    throw err;
+  }
+}
+
 /** One-shot: run a single goal to completion, then exit. */
 export async function runGoal(goal: string, options: AgentCliOptions): Promise<void> {
   const config = buildConfig(options);
@@ -136,7 +183,6 @@ export async function runGoal(goal: string, options: AgentCliOptions): Promise<v
 /** Interactive REPL against the configured real provider. */
 export async function chatLoop(options: AgentCliOptions): Promise<void> {
   const config = buildConfig(options);
-  ensureChatCapable(config);
   const mode: PermissionMode = options.readOnly ? 'read-only' : 'workspace';
 
   // On a real terminal, launch the rich Ink TUI (Claude Code-like). Non-TTY
@@ -144,22 +190,32 @@ export async function chatLoop(options: AgentCliOptions): Promise<void> {
   // below, so headless behavior and every existing test are unchanged. The TUI
   // is dynamically imported so React/Ink never load on the non-interactive path.
   if (process.stdin.isTTY && process.stdout.isTTY && process.env.PARALLAX_NO_TUI !== '1') {
-    // Build the agent here (not inside the TUI) so a missing key surfaces as the
-    // friendly SetupRequiredError, exactly like the readline path.
-    const agent = buildAgent(config, options);
+    // The TUI can open even with no model configured: a missing key or a bare
+    // `fake` provider yields a fallback agent + `needsSetup`, and the user
+    // configures a model from inside via `/model` (env-only setup guidance is
+    // for the headless path below, where there's no dialog to fall back to).
+    const { agent, needsSetup, desiredProvider, desiredModel } = buildAgentOrFallback(
+      config,
+      options,
+    );
     const session = await agent.facade.createSession({ cwd: options.cwd, permissionMode: mode });
     const { runTui } = await import('./tui/run.tsx');
     await runTui({
       agent,
       sessionId: session.id,
       buildConfig: (over) => buildConfig({ ...options, ...over }),
-      provider: config.provider,
-      model: effectiveModel(config),
+      provider: desiredProvider,
+      model: desiredModel,
       mode,
       cwd: options.cwd,
+      needsSetup,
     });
     return;
   }
+
+  // Headless path: no dialog to configure from, so an unconfigured install is a
+  // fatal (but friendly) setup error, exactly as before.
+  ensureChatCapable(config);
 
   const renderer = new CliRenderer();
   const rl = createInterface({ input: process.stdin, output: process.stderr });
