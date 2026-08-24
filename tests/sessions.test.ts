@@ -83,6 +83,53 @@ describe('SqliteSessionStore', () => {
     reopened.close();
   });
 
+  it('gives every message a globally unique id across sessions (regression: messages.id PK collision)', async () => {
+    // Repro of the original crash: message ids were `m<process-counter>-<per-session-seq>`.
+    // The per-session seq restarts at 0 for each new session and the counter restarted
+    // on every process launch, so the first message of the first session in any launch
+    // was always `m1-0` — colliding on the second launch against a persistent DB.
+    const ids = new Set<string>();
+    const first = new SqliteSessionStore(dbPath);
+    const s1 = await first.createSession({
+      cwd: '/a',
+      provider: 'fake',
+      model: 'm',
+      permissionMode: 'workspace',
+    });
+    const t1 = await first.createTurn(s1.id, 'hi');
+    const m1 = await first.appendMessage({
+      sessionId: s1.id,
+      turnId: t1.id,
+      role: 'user',
+      content: 'hi',
+    });
+    ids.add(m1.id);
+    first.close();
+
+    // Reopen the same DB file — simulates a fresh process launch (counter would reset).
+    const second = new SqliteSessionStore(dbPath);
+    const s2 = await second.createSession({
+      cwd: '/b',
+      provider: 'fake',
+      model: 'm',
+      permissionMode: 'workspace',
+    });
+    const t2 = await second.createTurn(s2.id, 'hi again');
+    // This is the append that used to throw `UNIQUE constraint failed: messages.id`.
+    const m2 = await second.appendMessage({
+      sessionId: s2.id,
+      turnId: t2.id,
+      role: 'user',
+      content: 'hi again',
+    });
+    expect(ids.has(m2.id)).toBe(false);
+    // Both sessions' first messages share seq 0 but must have distinct row ids.
+    expect(m1.id).not.toBe(m2.id);
+    expect(await second.listMessages(s1.id)).toHaveLength(1);
+    expect(await second.listMessages(s2.id)).toHaveLength(1);
+    second.close();
+  });
+
   it('lists sessions most-recently-updated first', async () => {
     const store = new SqliteSessionStore(dbPath);
     const a = await store.createSession({

@@ -51,3 +51,14 @@ export function resolveApiKey(provider: string): string | undefined {
   }
   return getCredential(provider);
 }
+
+/**
+ * Resolve the web-search (Tavily) API key: the `TAVILY_API_KEY` environment
+ * variable first, then the on-disk credentials store under the `tavily` key
+ * (so a key can be saved once and reused, like a provider key). Read lazily by
+ * the `web_search` tool so a key added mid-session is picked up. Never persisted
+ * to `Config`, so it can't leak into the store or logs.
+ */
+export function resolveSearchApiKey(): string | undefined {
+  return process.env.TAVILY_API_KEY ?? getCredential('tavily');
+}

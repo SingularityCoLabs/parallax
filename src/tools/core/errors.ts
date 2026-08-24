@@ -17,6 +17,8 @@ export const ErrorCode = {
   OutputLimit: 'output_limit',
   UnknownTool: 'unknown_tool',
   Cancelled: 'cancelled',
+  NetworkError: 'network_error',
+  MissingCredential: 'missing_credential',
   InternalError: 'internal_error',
 } as const;
 

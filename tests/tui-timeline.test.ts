@@ -46,6 +46,14 @@ describe('toolLabel', () => {
     expect(toolLabel('unknown_tool', {})).toBe('unknown_tool');
   });
 
+  it('labels the todo/plan/web tools', () => {
+    expect(toolLabel('update_todos', { todos: [{}, {}] })).toBe('Todo(2 items)');
+    expect(toolLabel('update_todos', { todos: [{}] })).toBe('Todo(1 item)');
+    expect(toolLabel('present_plan', { plan: 'x' })).toBe('Plan');
+    expect(toolLabel('web_fetch', { url: 'https://example.com/a?b=c' })).toBe('Fetch(example.com)');
+    expect(toolLabel('web_search', { query: 'weather' })).toBe('WebSearch(weather)');
+  });
+
   it('truncates long command/query args', () => {
     const long = 'x'.repeat(80);
     expect(toolLabel('shell', { command: long }).length).toBeLessThan(60);
@@ -69,6 +77,24 @@ describe('timeline reducer', () => {
       model: 'claude-opus-4-8',
       permissionMode: 'workspace',
     });
+  });
+
+  it('folds mode.changed into the session permission mode', () => {
+    const s = fold([
+      ev('session.started', {
+        cwd: '/w',
+        provider: 'anthropic',
+        model: 'claude-opus-4-8',
+        permissionMode: 'plan',
+      }),
+      ev('mode.changed', { turnId: 't1', mode: 'workspace' }),
+    ]);
+    expect(s.session?.permissionMode).toBe('workspace');
+  });
+
+  it('ignores mode.changed before a session exists', () => {
+    const s = fold([ev('mode.changed', { turnId: 't1', mode: 'workspace' })]);
+    expect(s.session).toBeUndefined();
   });
 
   it('accumulates streaming assistant deltas into one block per step', () => {

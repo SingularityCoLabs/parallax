@@ -136,6 +136,40 @@ describe('PolicyEngine decision table', () => {
   });
 });
 
+describe('present_plan gate', () => {
+  it('ASKs in plan mode (approving it exits plan mode)', () => {
+    const decision = engine.evaluate(
+      ctx({ toolName: 'present_plan', risk: 'read', mode: 'plan', actionTitle: 'Ready to code?' }),
+    );
+    expect(decision.kind).toBe('ask');
+    if (decision.kind === 'ask') {
+      expect(decision.approval.toolName).toBe('present_plan');
+      expect(decision.approval.title).toBe('Ready to code?');
+    }
+  });
+
+  it('ALLOWs in workspace mode (nothing to switch)', () => {
+    const decision = engine.evaluate(
+      ctx({ toolName: 'present_plan', risk: 'read', mode: 'workspace' }),
+    );
+    expect(decision.kind).toBe('allow');
+  });
+
+  it('ALLOWs in read-only mode', () => {
+    const decision = engine.evaluate(
+      ctx({ toolName: 'present_plan', risk: 'read', mode: 'read-only' }),
+    );
+    expect(decision.kind).toBe('allow');
+  });
+
+  it('still DENYs when the (irrelevant) path escapes the workspace', () => {
+    const decision = engine.evaluate(
+      ctx({ toolName: 'present_plan', risk: 'read', mode: 'plan', outsideWorkspace: true }),
+    );
+    expect(decision.kind).toBe('deny');
+  });
+});
+
 describe('classifyCommand', () => {
   it('flags recursive force remove', () => {
     expect(classifyCommand('rm -rf /tmp/x').destructive).toBe(true);

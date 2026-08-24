@@ -175,6 +175,7 @@ Config resolves as `CLI flag > env > parallax.json > built-in default`:
 | ----------------------------------------- | --------------------------------------- | ----------------------------- |
 | `PARALLAX_PROVIDER` (or `-p`)             | provider id (see table above)           | `fake`                        |
 | `<PROVIDER>_API_KEY` / `PARALLAX_API_KEY` | API key for the provider                | —                             |
+| `TAVILY_API_KEY`                          | API key for the `web_search` tool       | —                             |
 | `PARALLAX_MODEL` (or `-m`)                | model id                                | provider's default            |
 | `PARALLAX_API_BASE_URL`                   | override the OpenAI-compatible endpoint | provider's default            |
 | `PARALLAX_MODELS_URL`                     | models.dev catalog endpoint             | `https://models.dev/api.json` |
@@ -236,6 +237,12 @@ approval → execute → persist → model`.
   read-before-write stale checks.
 - `shell` tool over a `HostExecutor` with timeout, output caps, cancellation, and
   process-group cleanup.
+- Planning + task tools: `update_todos` (a live task checklist) and `present_plan`
+  (a Claude Code-style plan gate — approving it exits plan mode straight into
+  workspace mode so execution continues in the same turn).
+- Web tools: `web_search` (via Tavily) and `web_fetch` (URL → readable text),
+  classified as `network` risk with SSRF guards (localhost / private / link-local
+  and cloud-metadata targets are refused, redirects re-validated).
 - Deterministic `ALLOW / ASK / DENY` policy with `read-only`, `workspace`, and
   `plan` modes; approvals support "allow once" and "allow always" (remembered
   per session).
@@ -257,7 +264,7 @@ and the maintainer [release guide](docs/releasing.md).
 
 ## Not in v0.1 (designed-for extension points)
 
-Context compaction, MCP / skills / hooks, browser & web tools,
+Context compaction, MCP / skills / hooks, browser automation,
 checkpoints/undo, subagents, and sandboxed executor backends.
 The interfaces (`ModelProvider`, `Executor`, `ToolRegistry`, `SessionStore`) are
 shaped so these slot in without reworking the runtime.

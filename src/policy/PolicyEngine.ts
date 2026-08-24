@@ -1,4 +1,4 @@
-import { newApprovalId, type ToolRisk } from '../protocol/index.ts';
+import { newApprovalId, PLAN_TOOL_NAME, type ToolRisk } from '../protocol/index.ts';
 import { classifyCommand } from './commandRisk.ts';
 import type { PermissionContext, PermissionDecision } from './PermissionDecision.ts';
 
@@ -8,8 +8,9 @@ const READ_RISKS: ReadonlySet<ToolRisk> = new Set<ToolRisk>(['read']);
  * Deterministic ALLOW / ASK / DENY engine (blueprint §16). The model proposes,
  * this decides (Principle 1). Rules, in order:
  *   1. Any path escaping the workspace → DENY (blueprint §17).
- *   2. read-only / plan mode → allow reads, DENY every mutating/side-effecting tool.
- *   3. workspace mode → allow reads, ASK for writes/shell/destructive/network.
+ *   2. The `present_plan` gate: ASK in plan mode, ALLOW elsewhere.
+ *   3. read-only / plan mode → allow reads, DENY every mutating/side-effecting tool.
+ *   4. workspace mode → allow reads, ASK for writes/shell/destructive/network.
  * The engine never executes; it only classifies.
  */
 export class PolicyEngine {
@@ -18,6 +19,28 @@ export class PolicyEngine {
       return {
         kind: 'deny',
         reason: `${ctx.toolName}: path escapes the workspace root (${ctx.workspaceRoot})`,
+      };
+    }
+
+    // The plan-mode "exit gate". `present_plan` has no side effects of its own
+    // (risk `read`), but in plan mode it is the deliberate hand-off point: we ASK
+    // so approving it can flip the session to workspace mode (TurnController). In
+    // any other mode there is nothing to switch, so it is a plain ALLOW.
+    if (ctx.toolName === PLAN_TOOL_NAME) {
+      if (ctx.mode !== 'plan') {
+        return { kind: 'allow', reason: `${ctx.toolName}: plan presented (no mode change)` };
+      }
+      return {
+        kind: 'ask',
+        reason: 'plan mode: approve to exit plan mode and start executing',
+        approval: {
+          id: newApprovalId(),
+          toolCallId: ctx.toolCallId,
+          toolName: ctx.toolName,
+          title: ctx.actionTitle,
+          ...(ctx.actionDetail !== undefined ? { detail: ctx.actionDetail } : {}),
+          risk: ctx.risk,
+        },
       };
     }
 

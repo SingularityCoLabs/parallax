@@ -39,7 +39,14 @@ export const configSchema = z.object({
   systemPrompt: z
     .string()
     .default(
-      'You are Parallax, a careful general-purpose agent. Use the provided tools to inspect and act on the workspace. Prefer native file tools over shell for reading and editing. Explain what you did concisely.',
+      'You are Parallax, a careful general-purpose agent. Use the provided tools to inspect and act on ' +
+        'the workspace. Prefer native file tools over shell for reading and editing. ' +
+        'For any multi-step task, maintain a task list with `update_todos` (send the full list each time, ' +
+        'keep exactly one task in_progress, and mark tasks completed as you finish them). ' +
+        'When in plan mode, research read-only (read/list/search, and web tools if needed), then call ' +
+        '`present_plan` with a concrete Markdown plan; approving it exits plan mode so you can execute. ' +
+        'Use `web_search` for current information beyond your knowledge and `web_fetch` to read a specific ' +
+        'URL. Explain what you did concisely.',
     ),
   maxToolResultChars: z.number().int().positive().default(16_000),
   maxMessages: z.number().int().nonnegative().default(0),
@@ -49,6 +56,10 @@ export const configSchema = z.object({
   maxSearchResults: z.number().int().positive().default(200),
   shellTimeoutMs: z.number().int().positive().default(120_000),
   shellMaxOutputBytes: z.number().int().positive().default(1_000_000),
+  // Web tool limits (network tools: web_fetch, web_search).
+  webRequestTimeoutMs: z.number().int().positive().default(15_000),
+  webFetchMaxBytes: z.number().int().positive().default(2_000_000),
+  webSearchMaxResults: z.number().int().positive().max(10).default(5),
 });
 
 export type Config = z.infer<typeof configSchema>;
