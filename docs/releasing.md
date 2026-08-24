@@ -3,10 +3,15 @@
 Parallax uses two release paths in
 [`publish.yml`](../.github/workflows/publish.yml):
 
-| Branch        | Trigger                  | npm dist-tag | Purpose               |
-| ------------- | ------------------------ | ------------ | --------------------- |
-| `main`        | Successful main CI run   | `next`       | Public beta releases  |
-| `development` | Manual workflow dispatch | `dev`        | Development snapshots |
+| Branch        | Trigger                  | npm dist-tag | Purpose                 |
+| ------------- | ------------------------ | ------------ | ----------------------- |
+| `main`        | Successful main CI run   | `latest`     | Public pre-1.0 releases |
+| `development` | Manual workflow dispatch | `dev`        | Development snapshots   |
+
+While Parallax is pre-1.0, the newest public build is intentionally published as
+`latest`, including beta versions. The legacy `next` tag is not advanced by the
+current workflow; use the plain package name or `@latest` when installing and
+verifying a release.
 
 Daily work belongs on `development`. Promote tested work to `main` with a pull
 request. Do not create npm versions, Git tags, or GitHub Releases for normal beta
@@ -47,8 +52,8 @@ After choosing the version, the workflow:
 3. Creates a generated `chore(release): v<version> [skip ci]` commit when the
    manifest version changed.
 4. Atomically pushes the release commit and matching `v<version>` tag.
-5. Publishes prereleases to npm `next`, or stable versions to npm `latest`, with
-   provenance through trusted publishing.
+5. Publishes the selected pre-1.0 release to npm `latest`, with provenance
+   through trusted publishing.
 6. Creates the matching GitHub Release and generated release notes.
 
 The atomic Git push prevents npm publication if another main update races with
@@ -90,9 +95,9 @@ Verify the completed release:
 
 ```bash
 npm dist-tag ls @singularitycolabs/parallax
-npm view @singularitycolabs/parallax@next version gitHead
+npm view @singularitycolabs/parallax@latest version gitHead
 gh release list --repo SingularityCoLabs/parallax --limit 5
-npx --yes @singularitycolabs/parallax@next --version
+npx --yes @singularitycolabs/parallax@latest --version
 ```
 
 ## Starting a new release line
@@ -116,7 +121,8 @@ main merges automatically advance to `0.2.0-beta.1`, `0.2.0-beta.2`, and so on.
 
 To publish a stable release, deliberately set an unpublished stable version such
 as `0.2.0` on `development`, verify it, and promote it through the same pull
-request flow. Stable releases use npm `latest` and create a normal GitHub Release.
+request flow. Stable releases continue using npm `latest` and create a normal
+GitHub Release instead of a prerelease.
 
 ## Manually publishing `development`
 

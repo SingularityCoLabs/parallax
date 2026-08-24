@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/SingularityCoLabs/parallax/actions/workflows/ci.yml/badge.svg)](https://github.com/SingularityCoLabs/parallax/actions/workflows/ci.yml)
 [![Release](https://github.com/SingularityCoLabs/parallax/actions/workflows/publish.yml/badge.svg)](https://github.com/SingularityCoLabs/parallax/actions/workflows/publish.yml)
-[![npm](https://img.shields.io/npm/v/%40singularitycolabs%2Fparallax?label=npm%20next)](https://www.npmjs.com/package/@singularitycolabs/parallax)
+[![npm](https://img.shields.io/npm/v/%40singularitycolabs%2Fparallax?label=npm%20latest)](https://www.npmjs.com/package/@singularitycolabs/parallax)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A secure, extensible **agent runtime** with a CLI as its first interface. The model
@@ -145,7 +145,7 @@ the history carries over to the new model:
 > /models                          list models for the current provider (with price/context)
 > /provider openai                 switch provider (uses its default model)
 > /model anthropic/claude-sonnet-4-6   switch provider + model in one step
-> /model                           open the interactive model picker
+> /model  (or /m)                 choose a provider, then choose its model
 > /tools                           list the available agent tools
 > /theme light                     switch the color theme (toggles with no arg)
 > /mode plan                       set permission mode (or /plan, /workspace, /read-only, /bypass)

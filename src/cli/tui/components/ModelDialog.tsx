@@ -34,6 +34,10 @@ export interface ModelDialogProps {
   providers: ProviderInfo[];
   /** Preselect this provider (the desired one when launching unconfigured). */
   initialProviderId?: string;
+  /** Preserve a directly requested model while collecting a missing API key. */
+  initialModelId?: string;
+  /** Start on the provider list without discarding the active-provider highlight. */
+  initialStep?: 'provider' | 'model';
   /** Whether a key already resolves for a provider (env / creds / session). */
   hasKey: (providerId: string) => boolean;
   onSubmit: (selection: ModelSelection) => void;
@@ -80,21 +84,41 @@ export function ModelDialog({
   theme,
   providers,
   initialProviderId,
+  initialModelId,
+  initialStep,
   hasKey,
   onSubmit,
   onCancel,
 }: ModelDialogProps): React.ReactElement {
-  // Preselecting a provider jumps past the provider list: to the model step if
-  // it already has a key, or straight to key entry if it doesn't. Otherwise we
-  // start at the provider list.
+  // A preset can either be highlighted on the provider step (bare `/model`) or
+  // jump to model/key recovery (a direct switch that discovered a missing key).
   const preset = initialProviderId
     ? providers.find((p) => p.id === initialProviderId && p.supported)
     : undefined;
   const presetNeedsKey = preset !== undefined && !hasKey(preset.id);
+  const beginAtProvider = initialStep === 'provider' || preset === undefined;
+  const presetIndex = preset ? providers.findIndex((p) => p.id === preset.id) : 0;
+  const presetModel = initialModelId ?? preset?.defaultModel ?? '';
+  const presetModelIndex = preset?.models.indexOf(presetModel) ?? -1;
+  const presetCustomIndex =
+    preset?.models.filter((model) => matches(model, presetModel)).length ?? 0;
+  const beginAtModel = !beginAtProvider && !presetNeedsKey;
 
-  const [step, setStep] = useState<Step>(preset ? (presetNeedsKey ? 'key' : 'model') : 'provider');
-  const [filter, setFilter] = useState('');
-  const [selected, setSelected] = useState(0);
+  const [step, setStep] = useState<Step>(
+    beginAtProvider ? 'provider' : presetNeedsKey ? 'key' : 'model',
+  );
+  const [filter, setFilter] = useState(
+    beginAtModel && presetModel !== '' && presetModelIndex < 0 ? presetModel : '',
+  );
+  const [selected, setSelected] = useState(
+    beginAtProvider
+      ? Math.max(0, presetIndex)
+      : beginAtModel
+        ? presetModelIndex >= 0
+          ? presetModelIndex
+          : presetCustomIndex
+        : 0,
+  );
   const [providerId, setProviderId] = useState(preset?.id ?? '');
   const [keyText, setKeyText] = useState('');
   // Default ON: a key entered here is saved to the 0600 credentials store so the
@@ -103,9 +127,7 @@ export function ModelDialog({
   const [hint, setHint] = useState('');
   // The model chosen while we detour through the key step (its default when we
   // jumped straight to key entry for a preset provider).
-  const [pendingModel, setPendingModel] = useState(
-    presetNeedsKey ? (preset?.defaultModel ?? '') : '',
-  );
+  const [pendingModel, setPendingModel] = useState(presetModel);
 
   const provider = useMemo(
     () => providers.find((p) => p.id === providerId),
@@ -125,9 +147,14 @@ export function ModelDialog({
   // non-matching filter becomes an explicit "use what I typed" row.
   const allowCustomModel = filter.trim() !== '' && !modelRows.some((m) => m === filter.trim());
 
-  const resetList = (): void => {
-    setFilter('');
-    setSelected(0);
+  const focusModel = (p: ProviderInfo | undefined, preferredModel?: string): void => {
+    const candidate = preferredModel ?? p?.defaultModel ?? '';
+    const index = p?.models.indexOf(candidate) ?? -1;
+    const customIndex = p?.models.filter((model) => matches(model, candidate)).length ?? 0;
+    // An arbitrary/custom model is represented by the synthetic filtered row.
+    setFilter(candidate !== '' && index < 0 ? candidate : '');
+    setSelected(index >= 0 ? index : customIndex);
+    setPendingModel(candidate);
     setHint('');
   };
 
@@ -138,7 +165,7 @@ export function ModelDialog({
     }
     setProviderId(p.id);
     setStep('model');
-    resetList();
+    focusModel(p, p.id === preset?.id ? presetModel : p.defaultModel);
   };
 
   const chooseModel = (model: string): void => {
@@ -168,12 +195,19 @@ export function ModelDialog({
       if (step === 'provider') return onCancel();
       if (step === 'model') {
         setStep('provider');
-        resetList();
+        setFilter('');
+        setSelected(
+          Math.max(
+            0,
+            providers.findIndex((p) => p.id === providerId),
+          ),
+        );
+        setHint('');
         return;
       }
       setStep('model'); // from key step
       setKeyText('');
-      resetList();
+      focusModel(provider, pendingModel);
       return;
     }
 

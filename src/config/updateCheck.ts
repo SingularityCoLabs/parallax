@@ -27,7 +27,7 @@ const FETCH_TIMEOUT_MS = 3_000;
 export interface UpdateInfo {
   current: string;
   latest: string;
-  /** `latest` for a stable release, `next` for a prerelease-channel newest. */
+  /** npm dist-tag that currently points at the selected newer version. */
   channel: 'latest' | 'next';
   checkedAt: number;
 }
@@ -146,8 +146,9 @@ export async function refreshUpdateInfo(): Promise<UpdateInfo | undefined> {
     });
     if (!res.ok) return undefined;
     const tags = distTagsSchema.parse(await res.json());
-    // Prefer a newer stable `latest`; fall back to the prerelease `next` channel
-    // when the running build is itself a prerelease (e.g. a `-beta` user).
+    // Compare both supported public channels and choose the semver-newest one.
+    // Pre-1.0 releases currently advance `latest`; `next` remains understood for
+    // future prerelease-channel use and for older registry state.
     const candidates: Array<{ v: string; channel: 'latest' | 'next' }> = [];
     if (tags.latest) candidates.push({ v: tags.latest, channel: 'latest' });
     if (tags.next) candidates.push({ v: tags.next, channel: 'next' });

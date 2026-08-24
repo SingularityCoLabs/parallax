@@ -58,15 +58,20 @@ function overrideConfig(over: { provider?: string; model?: string }): Config {
 function renderApp(
   agent: Agent,
   sessionId: string,
-  opts: { animateIntro?: boolean; needsSetup?: boolean } = {},
+  opts: {
+    animateIntro?: boolean;
+    needsSetup?: boolean;
+    initialProvider?: string;
+    initialModel?: string;
+  } = {},
 ) {
   return render(
     <App
       agent={agent}
       sessionId={sessionId}
       buildConfig={overrideConfig}
-      initialProvider={opts.needsSetup ? 'fake' : 'fake'}
-      initialModel="fake-1"
+      initialProvider={opts.initialProvider ?? 'fake'}
+      initialModel={opts.initialModel ?? 'fake-1'}
       initialMode="workspace"
       cwd="/demo/project"
       animateIntro={opts.animateIntro ?? false}
@@ -79,6 +84,7 @@ const tick = (ms = 60): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // Keystrokes for ink-testing-library's mock stdin.
 const ENTER = '\r';
+const UP = '\u001B[A';
 const DOWN = '[B'; // down-arrow escape sequence
 const ESC = '';
 
@@ -93,7 +99,7 @@ beforeEach(() => {
   // Isolate credential/key resolution so `hasKey` is deterministic regardless of
   // the developer's shell or `~/.parallax`.
   tmpHome = mkdtempSync(join(tmpdir(), 'parallax-tui-'));
-  for (const key of ['PARALLAX_HOME', 'PARALLAX_API_KEY', 'ANTHROPIC_API_KEY']) {
+  for (const key of ['PARALLAX_HOME', 'PARALLAX_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY']) {
     savedEnv[key] = process.env[key];
     delete process.env[key];
   }
@@ -203,6 +209,49 @@ describe('TUI App render', () => {
     unmount();
   });
 
+  it('/m opens provider-first, highlights the active provider, then selects its model', async () => {
+    const agent = makeAgent([[modelText('hi')]]);
+    const session = await agent.facade.createSession({
+      cwd: '/demo/project',
+      permissionMode: 'workspace',
+    });
+    const { lastFrame, stdin, unmount } = renderApp(agent, session.id, {
+      initialProvider: 'openai',
+      initialModel: 'gpt-4.1',
+    });
+    await tick();
+
+    // The trailing space bypasses autocomplete and exercises `/m` as a real
+    // parsed alias. The current provider is highlighted, but not skipped.
+    stdin.write('/m ');
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+    expect(lastFrame() ?? '').toContain('Configure model');
+    expect(lastFrame() ?? '').toContain('select a provider');
+    expect(lastFrame() ?? '').toContain('❯ ✗ OpenAI');
+
+    // Entering the current provider preserves and highlights its active model.
+    stdin.write(ENTER);
+    await tick();
+    expect(lastFrame() ?? '').toContain('OpenAI · select a model');
+    expect(lastFrame() ?? '').toContain('❯ gpt-4.1');
+
+    // Back returns to the same provider instead of resetting to the first row.
+    stdin.write(ESC);
+    await tick();
+    expect(lastFrame() ?? '').toContain('❯ ✗ OpenAI');
+
+    // Move from OpenAI to Anthropic and confirm: the second step is its model
+    // list, proving the command exposes the complete provider → model path.
+    stdin.write(UP);
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+    expect(lastFrame() ?? '').toContain('Anthropic (Claude) · select a model');
+    unmount();
+  });
+
   it('switches to bypass mode via /bypass and shows the loud footer', async () => {
     const agent = makeAgent([[modelText('hi')]]);
     const session = await agent.facade.createSession({
@@ -295,6 +344,42 @@ describe('TUI model configuration', () => {
     expect(frame).not.toContain('Configure model');
     expect(frame).toContain('anthropic:claude');
     expect(frame).not.toContain('/model to configure');
+    unmount();
+  });
+
+  it('preserves a directly requested model while collecting its missing key', async () => {
+    // A whitespace-only env value must be treated exactly like a missing key by
+    // both provider construction and the dialog's routing logic.
+    process.env.OPENAI_API_KEY = '  \n\t ';
+    const agent = makeAgent([[modelText('hi')]]);
+    const session = await agent.facade.createSession({
+      cwd: '/demo/project',
+      permissionMode: 'workspace',
+    });
+    const { lastFrame, stdin, unmount } = renderApp(agent, session.id);
+    await tick();
+
+    stdin.write('/model openai/gpt-4.1');
+    await tick();
+    stdin.write(ENTER);
+    await tick(120);
+    expect(lastFrame() ?? '').toContain('OpenAI · enter API key');
+
+    // Going back restores the requested model, not row zero; selecting it again
+    // returns to key entry with the same pending selection.
+    stdin.write(ESC);
+    await tick();
+    expect(lastFrame() ?? '').toContain('OpenAI · select a model');
+    expect(lastFrame() ?? '').toContain('❯ gpt-4.1');
+    stdin.write(ENTER);
+    await tick();
+    expect(lastFrame() ?? '').toContain('OpenAI · enter API key');
+
+    stdin.write('sk-test-openai');
+    await tick();
+    stdin.write(ENTER);
+    await tick(120);
+    expect(lastFrame() ?? '').toContain('openai:gpt-4.1');
     unmount();
   });
 });

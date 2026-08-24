@@ -30,6 +30,11 @@ describe('slash-command catalog', () => {
     expect(forB).toContain('bypass');
   });
 
+  it('resolves the exact /m alias only to the provider/model picker', () => {
+    expect(completionsFor('/m').map((c) => c.name)).toEqual(['model']);
+    expect(slashCommands().find((c) => c.name === 'model')?.aliases).toContain('m');
+  });
+
   it('offers all commands for a bare slash, and none once a space is typed', () => {
     expect(completionsFor('/').length).toBe(slashCommands().length);
     expect(completionsFor('/model ')).toEqual([]); // typing an argument, not a name

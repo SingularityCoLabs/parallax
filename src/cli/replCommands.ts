@@ -39,6 +39,7 @@ export function parseCommand(line: string): ReplCommand {
       return { kind: 'models', ...(arg !== undefined ? { arg } : {}) };
     case 'provider':
       return { kind: 'provider', ...(arg !== undefined ? { arg } : {}) };
+    case 'm':
     case 'model':
       return { kind: 'model', ...(arg !== undefined ? { arg } : {}) };
     default:
@@ -120,7 +121,7 @@ export function formatModels(providerId: string, currentModel?: string): string 
 export function formatHelp(): string {
   return [
     'commands:',
-    '  /model [id]            switch model, or open the picker (e.g. /model claude-sonnet-4-6)',
+    '  /model | /m [id]       switch model; bare command opens the provider/model picker in the TUI',
     '  /model <prov>/<id>     switch provider + model (e.g. /model openai/gpt-4o)',
     '  /provider <id>         switch provider, using its default model',
     '  /models [provider]     list models for the current (or named) provider',

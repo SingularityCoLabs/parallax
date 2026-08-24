@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import SelectInput from 'ink-select-input';
+import SelectInput, { type IndicatorProps, type ItemProps } from 'ink-select-input';
 import type { ApprovalDecision } from '../../../protocol/index.ts';
 import { DiffView } from './DiffView.tsx';
 import { type Theme } from '../theme.ts';
@@ -32,6 +32,17 @@ export function ApprovalPrompt({
   theme: Theme;
   onDecision: (decision: ApprovalDecision) => void;
 }): React.ReactElement {
+  const ThemedIndicator = ({ isSelected = false }: IndicatorProps): React.ReactElement => (
+    <Box marginRight={1}>
+      <Text color={isSelected ? theme.selection : theme.subtle}>{isSelected ? '❯' : ' '}</Text>
+    </Box>
+  );
+  const ThemedItem = ({ isSelected = false, label }: ItemProps): React.ReactElement => (
+    <Text color={isSelected ? theme.selection : theme.text} bold={isSelected}>
+      {label}
+    </Text>
+  );
+
   return (
     <Box
       flexDirection="column"
@@ -53,7 +64,12 @@ export function ApprovalPrompt({
       {request.diffPreview !== undefined && <DiffView diff={request.diffPreview} theme={theme} />}
 
       <Box marginTop={1}>
-        <SelectInput items={CHOICES} onSelect={(item: Choice) => onDecision(item.value)} />
+        <SelectInput
+          items={CHOICES}
+          indicatorComponent={ThemedIndicator}
+          itemComponent={ThemedItem}
+          onSelect={(item: Choice) => onDecision(item.value)}
+        />
       </Box>
     </Box>
   );

@@ -1,8 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { darkTheme, lightTheme, getTheme, glyphs } from '../src/cli/tui/theme.ts';
+import { BRAND_PRIMARY, darkTheme, lightTheme, getTheme, glyphs } from '../src/cli/tui/theme.ts';
 
 describe('theme', () => {
-  it('exposes the red/blue/purple identity roles on both themes', () => {
+  it('uses the exact #DC0000 primary with blue interaction and orange warning roles', () => {
+    expect(BRAND_PRIMARY).toBe('rgb(220,0,0)');
+    expect(darkTheme).toMatchObject({
+      accent: BRAND_PRIMARY,
+      selection: 'rgb(78,161,255)',
+      permission: 'rgb(56,189,248)',
+      warning: 'rgb(255,159,28)',
+    });
+    expect(lightTheme).toMatchObject({
+      accent: BRAND_PRIMARY,
+      selection: 'rgb(0,95,204)',
+      permission: 'rgb(0,122,159)',
+      warning: 'rgb(180,83,9)',
+    });
+  });
+
+  it('exposes every semantic color role on both themes', () => {
     for (const theme of [darkTheme, lightTheme]) {
       // Every semantic role the components reference must be a defined color.
       for (const key of [
@@ -15,13 +31,16 @@ describe('theme', () => {
         'success',
         'error',
         'warning',
+        'diffAdded',
+        'diffRemoved',
       ] as const) {
         expect(theme[key]).toMatch(/^rgb\(\d+,\d+,\d+\)$/);
       }
-      // selection (purple) is distinct from accent (red) and permission (blue).
+      // Interaction and attention colors stay distinct from the brand primary.
       expect(theme.selection).not.toBe(theme.accent);
-      expect(theme.selection).not.toBe(theme.permission);
       expect(theme.accent).not.toBe(theme.permission);
+      expect(theme.warning).not.toBe(theme.accent);
+      expect(theme.warning).not.toBe(theme.selection);
     }
   });
 
