@@ -53,6 +53,23 @@ export function resolveApiKey(provider: string): string | undefined {
 }
 
 /**
+ * Scrub an API key so it is always a legal HTTP header value. API keys are
+ * visible-ASCII tokens (`[!-~]`); anything else — a trailing newline from
+ * `.env`/`credentials.json`, a line break from a wrapped paste, a stray space,
+ * or a smart-quote — is removed. This matters because undici *throws* on a
+ * header value containing a control character (e.g. an embedded `\n`) and its
+ * error message echoes the key verbatim, so an unsanitized key both breaks the
+ * request and risks leaking the secret into logs. Removing (not rejecting) the
+ * junk means a wrapped paste "just works". Returns `undefined` if nothing is
+ * left (the key was only whitespace).
+ */
+export function sanitizeApiKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const cleaned = raw.replace(/[^\x21-\x7e]/g, '');
+  return cleaned === '' ? undefined : cleaned;
+}
+
+/**
  * Resolve the web-search (Tavily) API key: the `TAVILY_API_KEY` environment
  * variable first, then the on-disk credentials store under the `tavily` key
  * (so a key can be saved once and reused, like a provider key). Read lazily by

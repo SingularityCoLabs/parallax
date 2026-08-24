@@ -2,7 +2,7 @@ import { newToolCallId, type ToolCall } from '../../protocol/index.ts';
 import type { ModelEvent } from '../ModelEvent.ts';
 import type { ModelRequest } from '../ModelRequest.ts';
 import type { ModelCapabilities, ModelProvider } from '../ModelProvider.ts';
-import { ProviderHttpError, safeText } from '../errors.ts';
+import { ProviderHttpError, redactSecrets, safeText } from '../errors.ts';
 import { parseSseStream } from '../openai/sse.ts';
 import { toMessagesRequest } from './messagesRequest.ts';
 
@@ -73,17 +73,23 @@ export class AnthropicProvider implements ModelProvider {
   async *stream(request: ModelRequest, signal: AbortSignal): AsyncIterable<ModelEvent> {
     const body = toMessagesRequest(request, { maxTokens: this.maxTokens });
 
-    const res = await this.fetchImpl(`${this.baseUrl}/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        'x-api-key': this.apiKey,
-        'anthropic-version': this.anthropicVersion,
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          'x-api-key': this.apiKey,
+          'anthropic-version': this.anthropicVersion,
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (err) {
+      const msg = redactSecrets(err instanceof Error ? err.message : String(err), this.apiKey);
+      throw new ProviderHttpError(0, `${this.name} request failed: ${msg}`);
+    }
 
     if (!res.ok) {
       const detail = await safeText(res);

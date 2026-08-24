@@ -2,7 +2,7 @@ import { newToolCallId, type ToolCall } from '../../protocol/index.ts';
 import type { ModelEvent } from '../ModelEvent.ts';
 import type { ModelRequest } from '../ModelRequest.ts';
 import type { ModelCapabilities, ModelProvider } from '../ModelProvider.ts';
-import { ProviderHttpError, safeText } from '../errors.ts';
+import { ProviderHttpError, redactSecrets, safeText } from '../errors.ts';
 import { toChatRequest } from './chatRequest.ts';
 import { parseSseStream } from './sse.ts';
 
@@ -67,16 +67,24 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       ...(this.maxTokens !== undefined ? { maxTokens: this.maxTokens } : {}),
     });
 
-    const res = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (err) {
+      // Never let a transport error carry the key (undici's invalid-header-value
+      // TypeError echoes the Authorization value verbatim).
+      const msg = redactSecrets(err instanceof Error ? err.message : String(err), this.apiKey);
+      throw new ProviderHttpError(0, `${this.name} request failed: ${msg}`);
+    }
 
     if (!res.ok) {
       const detail = await safeText(res);

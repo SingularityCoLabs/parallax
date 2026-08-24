@@ -8,7 +8,7 @@ export {
   type Config,
   type ProviderName,
 } from './schema.ts';
-export { loadConfig, resolveApiKey, resolveSearchApiKey } from './loadConfig.ts';
+export { loadConfig, resolveApiKey, resolveSearchApiKey, sanitizeApiKey } from './loadConfig.ts';
 export {
   configHome,
   databasePath,
