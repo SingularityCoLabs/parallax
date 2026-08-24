@@ -82,6 +82,21 @@ const cases: Case[] = [
   { name: 'plan + destructive', mode: 'plan', risk: 'destructive', expected: 'deny' },
   { name: 'plan + network', mode: 'plan', risk: 'network', expected: 'deny' },
   { name: 'plan + external_write', mode: 'plan', risk: 'external_write', expected: 'deny' },
+
+  // bypass mode: auto-approve everything in-workspace (no prompts).
+  { name: 'bypass + read', mode: 'bypass', risk: 'read', expected: 'allow' },
+  { name: 'bypass + write', mode: 'bypass', risk: 'write', expected: 'allow' },
+  { name: 'bypass + destructive', mode: 'bypass', risk: 'destructive', expected: 'allow' },
+  { name: 'bypass + network', mode: 'bypass', risk: 'network', expected: 'allow' },
+  { name: 'bypass + external_write', mode: 'bypass', risk: 'external_write', expected: 'allow' },
+  // …but the workspace-escape guardrail still applies.
+  {
+    name: 'bypass + escape',
+    mode: 'bypass',
+    risk: 'write',
+    outsideWorkspace: true,
+    expected: 'deny',
+  },
 ];
 
 describe('PolicyEngine decision table', () => {
@@ -167,6 +182,13 @@ describe('present_plan gate', () => {
       ctx({ toolName: 'present_plan', risk: 'read', mode: 'plan', outsideWorkspace: true }),
     );
     expect(decision.kind).toBe('deny');
+  });
+
+  it('does not gate present_plan in bypass mode (auto-approved like everything else)', () => {
+    const decision = engine.evaluate(
+      ctx({ toolName: 'present_plan', risk: 'read', mode: 'bypass' }),
+    );
+    expect(decision.kind).toBe('allow');
   });
 });
 

@@ -120,12 +120,17 @@ export function formatModels(providerId: string, currentModel?: string): string 
 export function formatHelp(): string {
   return [
     'commands:',
-    '  /model <id>            switch model (e.g. /model claude-sonnet-4-6)',
+    '  /model [id]            switch model, or open the picker (e.g. /model claude-sonnet-4-6)',
     '  /model <prov>/<id>     switch provider + model (e.g. /model openai/gpt-4o)',
     '  /provider <id>         switch provider, using its default model',
     '  /models [provider]     list models for the current (or named) provider',
     '  /providers             list providers and key status',
+    '  /tools                 list the available agent tools',
+    '  /theme [dark|light]    switch the color theme (toggles if no arg)',
+    '  /mode <mode>           set permission mode (workspace|plan|read-only|bypass)',
+    '  /workspace /plan /read-only /bypass   shortcuts for each permission mode',
     '  /help                  show this help',
+    '  /exit | /quit          leave Parallax',
     '  exit | quit            leave the REPL',
   ].join('\n');
 }

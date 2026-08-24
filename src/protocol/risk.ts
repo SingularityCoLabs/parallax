@@ -33,11 +33,15 @@ export const resourceClassSchema: z.ZodType<ResourceClass> = z.enum([
  * - `plan`: like `read-only` for *gating* (no side effects), but semantically a
  *   "research & propose" mode — the agent inspects and drafts a plan without
  *   touching anything. Toggled with Shift+Tab in the TUI.
+ * - `bypass`: auto-approve every tool with no prompts (writes/shell/network),
+ *   for when the user wants to move fast. The one hard guardrail still holds —
+ *   a path escaping the workspace root is always denied (see PolicyEngine).
  */
-export type PermissionMode = 'read-only' | 'workspace' | 'plan';
+export type PermissionMode = 'read-only' | 'workspace' | 'plan' | 'bypass';
 
 export const permissionModeSchema: z.ZodType<PermissionMode> = z.enum([
   'read-only',
   'workspace',
   'plan',
+  'bypass',
 ]);

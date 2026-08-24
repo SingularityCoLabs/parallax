@@ -36,7 +36,14 @@ export {
   resetCatalog,
   localDefaults,
 } from './catalog.ts';
-export { loadLocalConfig, localConfigSchema, type LocalConfig } from './localConfig.ts';
+export {
+  loadLocalConfig,
+  saveLocalConfig,
+  userConfigPath,
+  localConfigSchema,
+  type LocalConfig,
+  type PersistablePrefs,
+} from './localConfig.ts';
 export {
   refreshFromNetwork,
   parseModelsDev,
@@ -45,3 +52,11 @@ export {
   fetchDisabled,
   type ModelsDevCatalog,
 } from './modelsDev.ts';
+export {
+  refreshUpdateInfo,
+  readUpdateCache,
+  isNewer,
+  upgradeCommand,
+  updateCheckDisabled,
+  type UpdateInfo,
+} from './updateCheck.ts';

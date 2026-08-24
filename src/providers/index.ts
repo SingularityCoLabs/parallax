@@ -15,4 +15,4 @@ export {
   type FetchLike,
 } from './openai/OpenAiCompatibleProvider.ts';
 export { AnthropicProvider, type AnthropicOptions } from './anthropic/AnthropicProvider.ts';
-export { ProviderHttpError, redactSecrets } from './errors.ts';
+export { ProviderHttpError, providerHttpError, redactSecrets } from './errors.ts';

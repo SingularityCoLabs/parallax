@@ -136,6 +136,14 @@ export class RuntimeFacade {
     return this.cfg.store.listSessions();
   }
 
+  /** The registered tools (name + one-line description), for the `/tools` command. */
+  listTools(): Array<{ name: string; description: string }> {
+    return this.cfg.registry.modelSchemas().map((t) => ({
+      name: t.name,
+      description: t.description,
+    }));
+  }
+
   resolveApproval(approvalId: string, decision: ApprovalDecision): boolean {
     return this.approvals.resolve(approvalId, decision);
   }

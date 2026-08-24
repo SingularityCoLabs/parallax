@@ -7,10 +7,11 @@ const READ_RISKS: ReadonlySet<ToolRisk> = new Set<ToolRisk>(['read']);
 /**
  * Deterministic ALLOW / ASK / DENY engine (blueprint §16). The model proposes,
  * this decides (Principle 1). Rules, in order:
- *   1. Any path escaping the workspace → DENY (blueprint §17).
- *   2. The `present_plan` gate: ASK in plan mode, ALLOW elsewhere.
- *   3. read-only / plan mode → allow reads, DENY every mutating/side-effecting tool.
- *   4. workspace mode → allow reads, ASK for writes/shell/destructive/network.
+ *   1. Any path escaping the workspace → DENY (blueprint §17). Always first.
+ *   2. `bypass` mode → ALLOW everything (the escape guardrail above still holds).
+ *   3. The `present_plan` gate: ASK in plan mode, ALLOW elsewhere.
+ *   4. read-only / plan mode → allow reads, DENY every mutating/side-effecting tool.
+ *   5. workspace mode → allow reads, ASK for writes/shell/destructive/network.
  * The engine never executes; it only classifies.
  */
 export class PolicyEngine {
@@ -20,6 +21,13 @@ export class PolicyEngine {
         kind: 'deny',
         reason: `${ctx.toolName}: path escapes the workspace root (${ctx.workspaceRoot})`,
       };
+    }
+
+    // `bypass` auto-approves every in-workspace action with no prompt. The
+    // workspace-escape DENY above is the one guardrail that still applies, so a
+    // tool can never reach outside the workspace root even here.
+    if (ctx.mode === 'bypass') {
+      return { kind: 'allow', reason: 'bypass mode: auto-approved (no prompts)' };
     }
 
     // The plan-mode "exit gate". `present_plan` has no side effects of its own

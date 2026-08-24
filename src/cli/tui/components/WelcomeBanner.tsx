@@ -30,6 +30,7 @@ const WORDMARK: readonly string[] = [
 function modeColor(mode: string, theme: Theme): string {
   if (mode === 'read-only') return theme.subtle;
   if (mode === 'plan') return theme.permission;
+  if (mode === 'bypass') return theme.accent; // red — auto-approves everything
   return theme.warning; // workspace: side effects possible
 }
 
@@ -44,6 +45,10 @@ export interface WelcomeBannerProps {
   markColor?: string;
   /** No usable model configured yet — show a call to action instead of provider:model. */
   needsSetup?: boolean;
+  /** One-line "update available …" notice, shown when a newer version exists. */
+  updateNotice?: string;
+  /** The reinstall command to run for that update. */
+  upgradeCmd?: string;
 }
 
 export function WelcomeBanner({
@@ -55,6 +60,8 @@ export function WelcomeBanner({
   cwd,
   markColor,
   needsSetup,
+  updateNotice,
+  upgradeCmd,
 }: WelcomeBannerProps): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -66,42 +73,65 @@ export function WelcomeBanner({
         ))}
       </Box>
 
-      <Box marginTop={1}>
-        <Text color={markColor ?? theme.accent}>{glyphs.star} </Text>
-        <Text color={theme.text} bold>
-          Welcome to Parallax
-        </Text>
-        <Text color={theme.subtle}> · v{version}</Text>
-      </Box>
-
-      <Box>
-        <Text color={theme.subtle}>{'  '}</Text>
-        {needsSetup ? (
-          <Text color={theme.warning}>
-            {provider === 'fake' ? 'no model configured' : `${provider} (needs key)`} · type /model
-            to set one up
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor={theme.accent}
+        paddingX={1}
+        marginTop={1}
+      >
+        <Box>
+          <Text color={markColor ?? theme.accent}>{glyphs.star} </Text>
+          <Text color={theme.text} bold>
+            Welcome to Parallax
           </Text>
-        ) : (
-          <>
-            <Text color={theme.accent}>
-              {provider}:{model}
+          <Text color={theme.subtle}> · v{version}</Text>
+        </Box>
+
+        <Box>
+          <Text color={theme.subtle}>{'  '}a secure, extensible coding agent</Text>
+        </Box>
+
+        <Box marginTop={1}>
+          <Text color={theme.subtle}>{'  '}</Text>
+          {needsSetup ? (
+            <Text color={theme.warning}>
+              {provider === 'fake' ? 'no model configured' : `${provider} (needs key)`} · type
+              /model to set one up
             </Text>
-            <Text color={theme.subtle}> · </Text>
-            <Text color={modeColor(mode, theme)}>{mode}</Text>
-          </>
-        )}
+          ) : (
+            <>
+              <Text color={theme.accent}>
+                {provider}:{model}
+              </Text>
+              <Text color={theme.subtle}> · </Text>
+              <Text color={modeColor(mode, theme)}>{mode}</Text>
+            </>
+          )}
+        </Box>
+
+        <Box>
+          <Text color={theme.subtle}>
+            {'  '}
+            {cwd}
+          </Text>
+        </Box>
+
+        <Box marginTop={1}>
+          <Text color={theme.permission}>{'  /help'}</Text>
+          <Text color={theme.subtle}> for commands · </Text>
+          <Text color={theme.permission}>shift+tab</Text>
+          <Text color={theme.subtle}> to switch mode</Text>
+        </Box>
       </Box>
 
-      <Box>
-        <Text color={theme.subtle}>
-          {'  '}
-          {cwd}
-        </Text>
-      </Box>
-
-      <Box marginTop={1}>
-        <Text color={theme.subtle}>{'  '}/help for help · shift+tab to switch mode</Text>
-      </Box>
+      {updateNotice !== undefined && (
+        <Box marginTop={1}>
+          <Text color={theme.warning}>{glyphs.star} </Text>
+          <Text color={theme.text}>{updateNotice}</Text>
+          {upgradeCmd !== undefined && <Text color={theme.permission}> · {upgradeCmd}</Text>}
+        </Box>
+      )}
     </Box>
   );
 }

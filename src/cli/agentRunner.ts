@@ -10,13 +10,17 @@ import {
 } from '../app/index.ts';
 import {
   loadConfig,
+  loadLocalConfig,
   databasePath,
   effectiveModel,
   getProvider,
   refreshCatalog,
+  refreshUpdateInfo,
+  upgradeCommand,
   type Config,
 } from '../config/index.ts';
 import type { ApprovalDecision, PermissionMode } from '../protocol/index.ts';
+import type { ThemeName } from './tui/theme.ts';
 import { CliRenderer } from './renderer.ts';
 import {
   parseCommand,
@@ -45,6 +49,11 @@ function buildConfig(options: AgentCliOptions): Config {
   if (options.provider) overrides.provider = options.provider;
   if (options.model) overrides.defaultModel = options.model;
   return loadConfig(overrides);
+}
+
+/** The persisted TUI theme from `parallax.json`, or `dark` when unset/invalid. */
+function resolvedThemeName(): ThemeName {
+  return loadLocalConfig().theme === 'light' ? 'light' : 'dark';
 }
 
 function makeApprovalHandler(
@@ -208,6 +217,7 @@ export async function chatLoop(options: AgentCliOptions): Promise<void> {
       model: desiredModel,
       mode,
       cwd: options.cwd,
+      themeName: resolvedThemeName(),
       needsSetup,
     });
     return;
@@ -225,6 +235,12 @@ export async function chatLoop(options: AgentCliOptions): Promise<void> {
   // `/models` reflects the latest. Never blocks startup and never throws — an
   // offline run keeps the bundled snapshot.
   void refreshCatalog();
+
+  // Best-effort update check (headless): print one line if a newer version is out.
+  void refreshUpdateInfo().then((u) => {
+    if (u)
+      process.stderr.write(`\nUpdate available ${u.current} → ${u.latest}: ${upgradeCommand(u)}\n`);
+  });
 
   let activeTurn: string | undefined;
   const unsubscribe = wire(agent, renderer, makeApprovalHandler(options.yes, rl), (t) => {
@@ -315,6 +331,7 @@ export async function resumeChat(
     model: match.model,
     mode: match.permissionMode,
     cwd: match.cwd,
+    themeName: resolvedThemeName(),
     seedEvents,
   });
   return true;
