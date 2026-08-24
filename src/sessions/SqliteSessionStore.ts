@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
+  newMessageId,
   newSessionId,
   newTurnId,
   parseRuntimeEvent,
@@ -28,8 +29,6 @@ import type {
 function nn<T>(v: T | undefined): T | null {
   return v === undefined ? null : v;
 }
-
-let messageCounter = 0;
 
 interface SessionRow {
   id: string;
@@ -191,11 +190,14 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   appendMessage(input: AppendMessageInput): Promise<MessageRecord> {
+    // `seq` is the per-session ordering key (MAX(seq)+1); the row `id` must be
+    // globally unique across all sessions and process restarts, so it comes from
+    // a UUID rather than any counter derived from `seq`.
     const seqRow = this.db
       .prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS s FROM messages WHERE session_id = ?')
       .get(input.sessionId) as { s: number };
     const record: MessageRecord = {
-      id: `m${(messageCounter += 1)}-${seqRow.s}`,
+      id: newMessageId(),
       sessionId: input.sessionId,
       turnId: input.turnId,
       role: input.role,

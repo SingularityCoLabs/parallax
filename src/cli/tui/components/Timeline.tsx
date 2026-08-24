@@ -1,10 +1,13 @@
 import React from 'react';
 import { Box, Static } from 'ink';
 import type { ApprovalDecision } from '../../../protocol/index.ts';
+import { PLAN_TOOL_NAME, TODO_TOOL_NAME } from '../../../protocol/index.ts';
 import type { TimelineItem } from '../timeline.ts';
 import { type Theme } from '../theme.ts';
 import { UserMessage, AssistantMessage, Notice } from './Message.tsx';
 import { ToolBlock } from './ToolBlock.tsx';
+import { TodoBlock } from './TodoBlock.tsx';
+import { PlanBlock } from './PlanBlock.tsx';
 import { ApprovalPrompt } from './ApprovalPrompt.tsx';
 
 /**
@@ -27,6 +30,8 @@ function renderItem(
     case 'assistant':
       return <AssistantMessage item={item} theme={theme} />;
     case 'tool':
+      if (item.name === TODO_TOOL_NAME) return <TodoBlock tool={item} theme={theme} />;
+      if (item.name === PLAN_TOOL_NAME) return <PlanBlock tool={item} theme={theme} />;
       return <ToolBlock tool={item} theme={theme} />;
     case 'notice':
       return <Notice item={item} theme={theme} />;

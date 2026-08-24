@@ -299,6 +299,19 @@ export function App(props: AppProps): React.ReactElement {
     }
   }, [needsSetup, introDone, autoOpened, dialogOpen, openDialog, provider]);
 
+  // The runtime can change permission mode mid-turn: approving the `present_plan`
+  // gate emits `mode.changed`, which the reducer folds into
+  // `session.permissionMode`. Mirror that into local `mode` so the footer and the
+  // next Shift+Tab start from the new mode. Only the auto-switch updates the
+  // session mode in the reducer, so this never fights the manual Shift+Tab path.
+  const sessionMode = state.session?.permissionMode;
+  useEffect(() => {
+    // Keyed on sessionMode only (by design): a manual Shift+Tab updates local
+    // `mode` without changing `sessionMode`, so it must not re-run this and get
+    // reverted. Only the runtime's `mode.changed` moves `sessionMode`.
+    if (sessionMode && sessionMode !== mode) setMode(sessionMode as PermissionMode);
+  }, [sessionMode]);
+
   // Global chords: Shift+Tab cycles mode; Esc/Ctrl-C cancels a turn or quits.
   // While the dialog is open it owns the keyboard, so these must not fire.
   useInput((input, key) => {

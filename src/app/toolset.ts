@@ -1,4 +1,5 @@
 import type { Config } from '../config/index.ts';
+import { resolveSearchApiKey } from '../config/index.ts';
 import { HostExecutor } from '../executor/index.ts';
 import {
   FileStateCache,
@@ -9,6 +10,9 @@ import {
   createEditFileTool,
 } from '../tools/fs/index.ts';
 import { createShellTool } from '../tools/shell/index.ts';
+import { createUpdateTodosTool } from '../tools/todo/index.ts';
+import { createPresentPlanTool } from '../tools/plan/index.ts';
+import { createWebFetchTool, createWebSearchTool } from '../tools/web/index.ts';
 import type { ToolRegistry } from '../tools/core/index.ts';
 
 /**
@@ -40,6 +44,25 @@ export function defaultToolset(config: Config): {
         executor,
         defaultTimeoutMs: config.shellTimeoutMs,
         maxOutputBytes: config.shellMaxOutputBytes,
+        maxModelChars: config.maxToolResultChars,
+      }),
+    );
+    // Planning / task-tracking tools (no side effects; run in every mode).
+    registry.register(createUpdateTodosTool({ maxModelChars: config.maxToolResultChars }));
+    registry.register(createPresentPlanTool({ maxModelChars: config.maxToolResultChars }));
+    // Network tools (policy ASKs in workspace, DENIes in plan/read-only).
+    registry.register(
+      createWebFetchTool({
+        timeoutMs: config.webRequestTimeoutMs,
+        maxBytes: config.webFetchMaxBytes,
+        maxModelChars: config.maxToolResultChars,
+      }),
+    );
+    registry.register(
+      createWebSearchTool({
+        getApiKey: resolveSearchApiKey,
+        timeoutMs: config.webRequestTimeoutMs,
+        maxResults: config.webSearchMaxResults,
         maxModelChars: config.maxToolResultChars,
       }),
     );

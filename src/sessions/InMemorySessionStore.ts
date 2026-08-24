@@ -1,4 +1,4 @@
-import { newSessionId, newTurnId, type RuntimeEvent } from '../protocol/index.ts';
+import { newMessageId, newSessionId, newTurnId, type RuntimeEvent } from '../protocol/index.ts';
 import type { SessionStore } from './SessionStore.ts';
 import type { PermissionMode } from '../protocol/index.ts';
 import type {
@@ -13,8 +13,6 @@ import type {
   TurnRecord,
   TurnStatus,
 } from './records.ts';
-
-let messageSeq = 0;
 
 /**
  * Non-durable SessionStore for tests and the fake-driven loop. Keeps the same
@@ -119,7 +117,7 @@ export class InMemorySessionStore implements SessionStore {
 
   appendMessage(input: AppendMessageInput): Promise<MessageRecord> {
     const record: MessageRecord = {
-      id: `m${(messageSeq += 1)}`,
+      id: newMessageId(),
       sessionId: input.sessionId,
       turnId: input.turnId,
       role: input.role,

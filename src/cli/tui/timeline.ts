@@ -98,6 +98,8 @@ export function toolLabel(name: string, args: Record<string, unknown>): string {
   const path = typeof args['path'] === 'string' ? (args['path'] as string) : undefined;
   const command = typeof args['command'] === 'string' ? (args['command'] as string) : undefined;
   const query = typeof args['query'] === 'string' ? (args['query'] as string) : undefined;
+  const url = typeof args['url'] === 'string' ? (args['url'] as string) : undefined;
+  const todos = Array.isArray(args['todos']) ? (args['todos'] as unknown[]) : undefined;
   switch (name) {
     case 'shell':
       return `Bash(${truncateArg(command ?? '')})`;
@@ -111,8 +113,26 @@ export function toolLabel(name: string, args: Record<string, unknown>): string {
       return `List(${path ?? '.'})`;
     case 'search_files':
       return `Search(${truncateArg(query ?? '')})`;
+    case 'update_todos':
+      return `Todo(${todos ? todos.length : 0} item${todos && todos.length === 1 ? '' : 's'})`;
+    case 'present_plan':
+      return 'Plan';
+    case 'web_fetch':
+      return `Fetch(${truncateArg(hostOf(url) ?? url ?? '')})`;
+    case 'web_search':
+      return `WebSearch(${truncateArg(query ?? '')})`;
     default:
       return name;
+  }
+}
+
+/** Best-effort host extraction for a URL label; falls back to `undefined`. */
+function hostOf(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
   }
 }
 
@@ -299,6 +319,13 @@ export function reduceTimeline(state: TimelineState, event: RuntimeEvent): Timel
 
     case 'turn.completed':
       return { ...state, active: false };
+
+    case 'mode.changed':
+      // The runtime switched permission mode mid-run (e.g. the plan gate was
+      // approved). Reflect it in the session info the footer/header read.
+      return state.session
+        ? { ...state, session: { ...state.session, permissionMode: event.mode } }
+        : state;
 
     case 'turn.cancelled':
       return {

@@ -74,6 +74,9 @@ export class CliRenderer {
         break;
       case 'turn.completed':
         break;
+      case 'mode.changed':
+        this.write(dim(`  → permission mode: ${event.mode}\n`));
+        break;
       case 'turn.cancelled':
         this.write(yellow('\n[cancelled]\n'));
         break;

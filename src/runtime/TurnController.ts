@@ -1,4 +1,5 @@
 import type { Logger } from '../observability/index.ts';
+import { PLAN_TOOL_NAME } from '../protocol/index.ts';
 import type {
   EmittedEvent,
   EmittedEventBody,
@@ -103,6 +104,9 @@ export class TurnController {
   }
 
   async run(ctx: TurnContext): Promise<void> {
+    // The turn's live permission mode. It can change mid-turn: approving the
+    // `present_plan` gate flips plan → workspace so the same turn starts editing.
+    let mode: PermissionMode = ctx.mode;
     for (let step = 0; step < this.d.maxSteps; step += 1) {
       this.throwIfAborted(ctx);
 
@@ -143,7 +147,8 @@ export class TurnController {
 
       for (const call of response.toolCalls) {
         this.throwIfAborted(ctx);
-        await this.handleToolCall(ctx, call);
+        const nextMode = await this.handleToolCall(ctx, call, mode);
+        if (nextMode) mode = nextMode;
       }
     }
 
@@ -187,7 +192,11 @@ export class TurnController {
     return response;
   }
 
-  private async handleToolCall(ctx: TurnContext, call: ToolCall): Promise<void> {
+  private async handleToolCall(
+    ctx: TurnContext,
+    call: ToolCall,
+    mode: PermissionMode,
+  ): Promise<PermissionMode | undefined> {
     await this.emit(ctx, { type: 'tool.proposed', turnId: ctx.turnId, call });
     await this.d.store.recordToolCall({
       id: call.id,
@@ -246,7 +255,7 @@ export class TurnController {
       sessionId: ctx.sessionId,
       turnId: ctx.turnId,
       workspaceRoot: ctx.workspaceRoot,
-      mode: ctx.mode,
+      mode,
       toolName: tool.name,
       toolCallId: call.id,
       risk: tool.risk,
@@ -284,7 +293,11 @@ export class TurnController {
       });
       const outcome = await wait;
       // "Always allow" → remember so this tool won't prompt again this session.
-      if (outcome === 'allow_always') this.d.grantedTools.add(tool.name);
+      // The plan gate is excluded: it must re-prompt whenever the user returns to
+      // plan mode (and approving it switches modes anyway, so it won't re-ask).
+      if (outcome === 'allow_always' && tool.name !== PLAN_TOOL_NAME) {
+        this.d.grantedTools.add(tool.name);
+      }
       await this.emit(ctx, {
         type: 'approval.resolved',
         turnId: ctx.turnId,
@@ -329,6 +342,17 @@ export class TurnController {
     } else {
       await this.emit(ctx, { type: 'tool.failed', turnId: ctx.turnId, result });
     }
+
+    // 8. The `present_plan` gate. Reaching here in plan mode means the plan was
+    // approved (a denial returns early above). Exit plan mode: persist the new
+    // mode, announce it (mode.changed), and hand `workspace` back to the turn
+    // loop so the same turn can start making changes.
+    if (tool.name === PLAN_TOOL_NAME && mode === 'plan' && result.ok) {
+      await this.d.store.updateSession(ctx.sessionId, { permissionMode: 'workspace' });
+      await this.emit(ctx, { type: 'mode.changed', turnId: ctx.turnId, mode: 'workspace' });
+      return 'workspace';
+    }
+    return undefined;
   }
 
   private async finishFailed(ctx: TurnContext, call: ToolCall, result: ToolResult): Promise<void> {

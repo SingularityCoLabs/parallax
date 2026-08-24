@@ -140,6 +140,19 @@ export const turnFailedEvent = z.object({
   message: z.string(),
 });
 
+/**
+ * The session's permission mode changed mid-run (blueprint §16.3). Currently
+ * emitted when the `present_plan` gate is approved and the runtime flips the
+ * session from `plan` to `workspace`. UIs update their mode indicator; the
+ * timeline reducer folds it into `session.permissionMode`.
+ */
+export const modeChangedEvent = z.object({
+  ...base,
+  type: z.literal('mode.changed'),
+  turnId: z.string(),
+  mode: z.string(),
+});
+
 export const runtimeEventSchema = z.discriminatedUnion('type', [
   sessionStartedEvent,
   turnStartedEvent,
@@ -157,6 +170,7 @@ export const runtimeEventSchema = z.discriminatedUnion('type', [
   turnCompletedEvent,
   turnCancelledEvent,
   turnFailedEvent,
+  modeChangedEvent,
 ]);
 
 export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
