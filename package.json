@@ -1,6 +1,6 @@
 {
   "name": "@singularitycolabs/parallax",
-  "version": "0.1.0-beta.12",
+  "version": "0.1.0-beta.13",
   "description": "A secure, extensible agent runtime with a CLI as its first interface.",
   "keywords": [
     "agent",
