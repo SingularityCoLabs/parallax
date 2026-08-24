@@ -7,6 +7,8 @@
 
 export interface SlashCommand {
   name: string;
+  /** Short names accepted by the parser but kept out of the main menu. */
+  aliases?: readonly string[];
   /** One-line help shown in the autocomplete menu. */
   summary: string;
   /** Whether it takes an argument (shown as a hint). */
@@ -16,7 +18,12 @@ export interface SlashCommand {
 /** The commands the TUI offers, in menu order. */
 export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'help', summary: 'Show commands and shortcuts' },
-  { name: 'model', summary: 'Switch model (or provider/model)', arg: '[prov/]id' },
+  {
+    name: 'model',
+    aliases: ['m'],
+    summary: 'Choose a provider and model',
+    arg: '[[provider/]model]',
+  },
   { name: 'models', summary: 'List models for a provider', arg: '[provider]' },
   { name: 'provider', summary: 'Switch provider (uses its default model)', arg: 'id' },
   { name: 'providers', summary: 'List providers and key status' },
@@ -49,5 +56,15 @@ export function slashCommands(): SlashCommand[] {
 export function completionsFor(input: string): SlashCommand[] {
   if (!input.startsWith('/') || input.includes(' ')) return [];
   const prefix = input.slice(1).toLowerCase();
-  return slashCommands().filter((c) => c.name.startsWith(prefix));
+  const commands = slashCommands();
+
+  // An exact alias is an intentional shortcut, not an ambiguous prefix. This
+  // makes `/m` deterministically resolve to `/model` instead of also offering
+  // `/models` and `/mode`; longer prefixes still use normal autocomplete.
+  const exactAlias = commands.find((c) => c.aliases?.includes(prefix));
+  if (exactAlias) return [exactAlias];
+
+  return commands.filter(
+    (c) => c.name.startsWith(prefix) || c.aliases?.some((alias) => alias.startsWith(prefix)),
+  );
 }

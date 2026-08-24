@@ -43,6 +43,11 @@ describe('parseCommand', () => {
       kind: 'model',
       arg: 'claude-opus-4-8',
     });
+    expect(parseCommand('/m')).toEqual({ kind: 'model' });
+    expect(parseCommand('/m openai/gpt-4o')).toEqual({
+      kind: 'model',
+      arg: 'openai/gpt-4o',
+    });
   });
 
   it('is case-insensitive on the command name and trims the arg', () => {
@@ -115,7 +120,7 @@ describe('formatters', () => {
 
   it('help lists the core commands', () => {
     const help = formatHelp();
-    for (const cmd of ['/model', '/provider', '/models', '/providers', '/help']) {
+    for (const cmd of ['/model', '/m', '/provider', '/models', '/providers', '/help']) {
       expect(help).toContain(cmd);
     }
   });

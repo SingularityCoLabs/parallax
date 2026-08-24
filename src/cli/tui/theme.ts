@@ -1,9 +1,9 @@
 /**
- * TUI color palette. Parallax's identity is a **red** accent (brand marks,
- * borders, bullets, prompt), **purple** for the selected/highlighted row in
- * menus, and **blue** for links, the permission/approval color, and the mode
- * indicator. Primary body text stays high-contrast (near-white on dark,
- * near-black on light) for readability — only secondary text is tinted.
+ * TUI color palette. Parallax's identity is the exact **#DC0000** brand red for
+ * marks, borders, bullets, and the prompt. Blue handles interactive selection,
+ * links, and permissions; orange handles warnings and other attention states.
+ * Primary body text stays high-contrast (near-white on dark, near-black on
+ * light) for readability — only secondary text is tinted.
  *
  * Values are truecolor `rgb(...)` strings that Ink passes through to the
  * terminal; on terminals without truecolor Ink degrades gracefully. These are
@@ -14,7 +14,7 @@ export interface Theme {
   accent: string;
   /** Lighter accent for secondary emphasis / intro pulse. */
   accentDim: string;
-  /** Highlighted/selected row in menus & completions. Purple. */
+  /** Highlighted/selected row in menus & completions. Blue. */
   selection: string;
   /** Permission/approval, links, and the mode indicator. Blue. */
   permission: string;
@@ -30,34 +30,39 @@ export interface Theme {
   diffRemoved: string;
 }
 
-/** Dark theme (default) — red accent, purple selection, blue links. */
+/** Exact brand primary requested for both terminal themes (#DC0000). */
+export const BRAND_PRIMARY = 'rgb(220,0,0)';
+
+/** Dark theme (default) — brand red, blue interactions, orange attention. */
 export const darkTheme: Theme = {
-  accent: 'rgb(235,75,75)', // brand red
-  accentDim: 'rgb(250,130,130)',
-  selection: 'rgb(180,140,255)', // purple — selected row
-  permission: 'rgb(95,155,255)', // blue — approvals, links, mode
-  text: 'rgb(232,232,232)',
-  subtle: 'rgb(140,150,170)', // blue-tinted gray for secondary text
-  success: 'rgb(70,180,110)',
-  error: 'rgb(255,105,125)', // pink-red, distinct from the accent red
-  warning: 'rgb(225,175,70)',
-  diffAdded: 'rgb(80,180,110)',
-  diffRemoved: 'rgb(255,105,125)',
+  accent: BRAND_PRIMARY,
+  // A brighter red is available for secondary emphasis and intro motion while
+  // the exact requested red remains the canonical brand accent.
+  accentDim: 'rgb(255,77,77)',
+  selection: 'rgb(78,161,255)',
+  permission: 'rgb(56,189,248)',
+  text: 'rgb(242,244,248)',
+  subtle: 'rgb(154,167,186)',
+  success: 'rgb(60,203,127)',
+  error: 'rgb(255,92,122)',
+  warning: 'rgb(255,159,28)',
+  diffAdded: 'rgb(60,203,127)',
+  diffRemoved: 'rgb(255,92,122)',
 };
 
-/** Light theme — deeper red/purple/blue for contrast on a light background. */
+/** Light theme — exact brand red with darker blue/orange semantic colors. */
 export const lightTheme: Theme = {
-  accent: 'rgb(200,40,40)', // brand red
-  accentDim: 'rgb(170,55,55)',
-  selection: 'rgb(120,70,200)', // purple — selected row
-  permission: 'rgb(40,90,210)', // blue — approvals, links, mode
-  text: 'rgb(28,28,28)',
-  subtle: 'rgb(95,105,120)',
-  success: 'rgb(38,120,60)',
-  error: 'rgb(190,40,70)',
-  warning: 'rgb(150,110,20)',
-  diffAdded: 'rgb(38,120,60)',
-  diffRemoved: 'rgb(190,40,70)',
+  accent: BRAND_PRIMARY,
+  accentDim: 'rgb(167,0,0)',
+  selection: 'rgb(0,95,204)',
+  permission: 'rgb(0,122,159)',
+  text: 'rgb(25,28,32)',
+  subtle: 'rgb(94,105,120)',
+  success: 'rgb(19,122,67)',
+  error: 'rgb(180,35,62)',
+  warning: 'rgb(180,83,9)',
+  diffAdded: 'rgb(19,122,67)',
+  diffRemoved: 'rgb(180,35,62)',
 };
 
 export type ThemeName = 'dark' | 'light';

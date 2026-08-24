@@ -8,6 +8,7 @@ import {
   readUpdateCache,
   refreshUpdateInfo,
   resolveApiKey,
+  sanitizeApiKey,
   saveCredential,
   saveLocalConfig,
   upgradeCommand,
@@ -96,6 +97,10 @@ export function App(props: AppProps): React.ReactElement {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogProviders, setDialogProviders] = useState<ProviderInfo[]>([]);
   const [dialogInitialProvider, setDialogInitialProvider] = useState<string | undefined>(undefined);
+  const [dialogInitialModel, setDialogInitialModel] = useState<string | undefined>(undefined);
+  const [dialogInitialStep, setDialogInitialStep] = useState<'provider' | 'model' | undefined>(
+    undefined,
+  );
   const [sessionKeys, setSessionKeys] = useState<Record<string, string>>({});
   // "Update available" banner data: read the local cache immediately, then do a
   // best-effort network refresh. Both are non-blocking and never throw.
@@ -119,23 +124,36 @@ export function App(props: AppProps): React.ReactElement {
       const info = getProvider(id);
       if (!info) return false;
       if (info.wire === 'fake') return true; // the fake provider needs no key
-      return Boolean(sessionKeys[id] ?? resolveApiKey(id));
+      return Boolean(sanitizeApiKey(sessionKeys[id] ?? resolveApiKey(id)));
     },
     [sessionKeys],
   );
 
   /**
-   * Open the `/model` overlay, snapshotting the catalog so it can't shift. A
-   * `fake`/empty provider is treated as "no preset" so the dialog opens on the
-   * provider list rather than jumping into the offline stub's model step.
+   * Open the `/model` overlay, snapshotting the catalog so it can't shift. The
+   * bare command starts at the provider list with the active provider selected;
+   * recovery from a direct switch can still jump to that provider/model/key. A
+   * `fake`/empty provider is treated as "no preset" so it never shortcuts into
+   * the offline stub's model step.
    */
-  const openDialog = useCallback((initialProvider?: string) => {
-    setDialogProviders(listProviders());
-    setDialogInitialProvider(
-      initialProvider && initialProvider !== 'fake' ? initialProvider : undefined,
-    );
-    setDialogOpen(true);
-  }, []);
+  const openDialog = useCallback(
+    (
+      initial: {
+        provider?: string;
+        model?: string;
+        step?: 'provider' | 'model';
+      } = {},
+    ) => {
+      setDialogProviders(listProviders());
+      setDialogInitialProvider(
+        initial.provider && initial.provider !== 'fake' ? initial.provider : undefined,
+      );
+      setDialogInitialModel(initial.model);
+      setDialogInitialStep(initial.step);
+      setDialogOpen(true);
+    },
+    [],
+  );
 
   const pushSystem = useCallback((text: string) => {
     setSystemLines((prev) => [...prev.slice(-40), ...text.split('\n')]);
@@ -200,7 +218,10 @@ export function App(props: AppProps): React.ReactElement {
           // No key on this path — offer the dialog to enter one, preset to the
           // provider the user asked for.
           pushSystem(`${sel.provider} needs an API key. Opening /model to configure it…`);
-          openDialog(sel.provider);
+          openDialog({
+            provider: sel.provider,
+            ...(sel.model !== undefined ? { model: sel.model } : {}),
+          });
           return;
         }
         pushSystem(`Could not switch: ${err instanceof Error ? err.message : String(err)}`);
@@ -247,8 +268,9 @@ export function App(props: AppProps): React.ReactElement {
           return;
         case 'model': {
           if (!command.arg) {
-            // Bare `/model` opens the interactive picker (OpenCode-style).
-            openDialog(provider);
+            // Bare `/model` and `/m` expose the complete provider → model path,
+            // with the current provider highlighted rather than skipped.
+            openDialog({ provider, model, step: 'provider' });
             return;
           }
           await switchTo(parseModelSelector(command.arg, provider));
@@ -345,7 +367,7 @@ export function App(props: AppProps): React.ReactElement {
       // No usable model yet — send them to the picker instead of a dead turn.
       if (needsSetup) {
         pushSystem('Choose a model first — opening /model.');
-        openDialog(provider);
+        openDialog({ provider });
         return;
       }
       await submitTurn(line);
@@ -358,7 +380,7 @@ export function App(props: AppProps): React.ReactElement {
   useEffect(() => {
     if (needsSetup && introDone && !autoOpened && !dialogOpen) {
       setAutoOpened(true);
-      openDialog(provider);
+      openDialog({ provider });
     }
   }, [needsSetup, introDone, autoOpened, dialogOpen, openDialog, provider]);
 
@@ -465,6 +487,8 @@ export function App(props: AppProps): React.ReactElement {
             theme={theme}
             providers={dialogProviders}
             {...(dialogInitialProvider ? { initialProviderId: dialogInitialProvider } : {})}
+            {...(dialogInitialModel ? { initialModelId: dialogInitialModel } : {})}
+            {...(dialogInitialStep ? { initialStep: dialogInitialStep } : {})}
             hasKey={hasKey}
             onSubmit={onDialogSubmit}
             onCancel={() => setDialogOpen(false)}
