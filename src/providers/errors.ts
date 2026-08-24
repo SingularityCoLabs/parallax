@@ -21,3 +21,18 @@ export async function safeText(res: Response): Promise<string> {
     return '<no body>';
   }
 }
+
+/**
+ * Strip secrets from an error message before it is surfaced (to logs, the
+ * `turn.failed` event, or the UI). undici's "invalid header value" TypeError
+ * echoes the offending header value verbatim — which for us is `Bearer <key>` /
+ * the `x-api-key` — so a raw provider error can leak the API key. This removes
+ * the exact key and any `Bearer <token>` sequence. Keys are sanitized upstream
+ * so this error should not normally fire, but it is the safety net that
+ * guarantees a key never reaches a log line.
+ */
+export function redactSecrets(message: string, secret?: string): string {
+  let out = message;
+  if (secret && secret.length >= 4) out = out.split(secret).join('<redacted>');
+  return out.replace(/Bearer\s+\S+/gi, 'Bearer <redacted>');
+}

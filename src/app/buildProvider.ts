@@ -3,6 +3,7 @@ import {
   effectiveBaseUrl,
   getProvider,
   resolveApiKey,
+  sanitizeApiKey,
   type Config,
 } from '../config/index.ts';
 import {
@@ -58,7 +59,10 @@ export function buildProvider(config: Config, options: { apiKey?: string } = {})
     throw new UnsupportedProviderError(config.provider);
   }
 
-  const apiKey = options.apiKey ?? resolveApiKey(config.provider);
+  // Sanitize whether the key came from the env, the credentials store, or the
+  // `/model` dialog — all can carry a stray newline/space that would make the
+  // auth header illegal (and leak the key via undici's error).
+  const apiKey = sanitizeApiKey(options.apiKey ?? resolveApiKey(config.provider));
   if (!apiKey) {
     throw new MissingApiKeyError(config.provider, apiKeyEnvHint(config.provider));
   }
