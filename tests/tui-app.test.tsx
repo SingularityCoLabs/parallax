@@ -79,6 +79,7 @@ const tick = (ms = 60): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // Keystrokes for ink-testing-library's mock stdin.
 const ENTER = '\r';
+const DOWN = '[B'; // down-arrow escape sequence
 const ESC = '';
 
 let tmpHome: string;
@@ -86,6 +87,9 @@ const savedEnv: Record<string, string | undefined> = {};
 
 beforeEach(() => {
   process.env.PARALLAX_DISABLE_MODELS_FETCH = '1';
+  // Keep the TUI tests hermetic: no live npm registry call on mount.
+  savedEnv['PARALLAX_NO_UPDATE_CHECK'] = process.env.PARALLAX_NO_UPDATE_CHECK;
+  process.env.PARALLAX_NO_UPDATE_CHECK = '1';
   // Isolate credential/key resolution so `hasKey` is deterministic regardless of
   // the developer's shell or `~/.parallax`.
   tmpHome = mkdtempSync(join(tmpdir(), 'parallax-tui-'));
@@ -174,6 +178,49 @@ describe('TUI App render', () => {
     // stays stable through a tool call — the approval UI is covered by the
     // timeline reducer test.)
     expect(lastFrame ?? '').toBeDefined();
+  });
+
+  it('arrow-selects a slash command and runs the highlighted one on Enter', async () => {
+    const agent = makeAgent([[modelText('hi')]]);
+    const session = await agent.facade.createSession({
+      cwd: '/demo/project',
+      permissionMode: 'workspace',
+    });
+    const { lastFrame, stdin, unmount } = renderApp(agent, session.id);
+    await tick();
+    // Open the completion menu; the first row is `/help`, the second `/model`.
+    stdin.write('/');
+    await tick();
+    expect(lastFrame() ?? '').toContain('/model');
+    // Move the highlight down to `/model` and run it — that opens the picker.
+    stdin.write(DOWN);
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+    // Enter on the *highlighted* row ran `/model` (not the top row `/help`),
+    // proving arrow selection works.
+    expect(lastFrame() ?? '').toContain('Configure model');
+    unmount();
+  });
+
+  it('switches to bypass mode via /bypass and shows the loud footer', async () => {
+    const agent = makeAgent([[modelText('hi')]]);
+    const session = await agent.facade.createSession({
+      cwd: '/demo/project',
+      permissionMode: 'workspace',
+    });
+    const { lastFrame, stdin, unmount } = renderApp(agent, session.id);
+    await tick();
+    stdin.write('/bypass');
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('bypass');
+    // The session's mode actually changed for subsequent turns.
+    const s = await agent.store.getSession(session.id);
+    expect(s?.permissionMode).toBe('bypass');
+    unmount();
   });
 });
 

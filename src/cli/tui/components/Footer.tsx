@@ -7,7 +7,13 @@ import { glyphs, type Theme } from '../theme.ts';
 function modeColor(mode: string, theme: Theme): string {
   if (mode === 'read-only') return theme.subtle;
   if (mode === 'plan') return theme.permission;
+  if (mode === 'bypass') return theme.accent; // red — auto-approves everything
   return theme.warning; // workspace: side effects possible
+}
+
+/** The mode label shown in the footer; bypass is made loud. */
+function modeLabel(mode: string): string {
+  return mode === 'bypass' ? 'bypass · no prompts' : mode;
 }
 
 /**
@@ -49,7 +55,9 @@ export function Footer({
           </Text>
         )}
         <Text color={theme.subtle}> · </Text>
-        <Text color={modeColor(mode, theme)}>{mode}</Text>
+        <Text color={modeColor(mode, theme)} bold={mode === 'bypass'}>
+          {modeLabel(mode)}
+        </Text>
         {tokens > 0 && <Text color={theme.subtle}> · {tokens} tok</Text>}
       </Box>
       <Box>

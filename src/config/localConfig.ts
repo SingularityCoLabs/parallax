@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { z } from 'zod';
 import { childLogger } from '../observability/index.ts';
-import { localConfigPaths } from './paths.ts';
+import { configHome, localConfigPaths } from './paths.ts';
 
 /**
  * User/project config file (`parallax.json`), opencode-style. This is the layer
@@ -102,4 +103,52 @@ export function loadLocalConfig(): LocalConfig {
     if (Object.keys(providers).length > 0) merged.providers = providers;
   }
   return merged;
+}
+
+/** The user-scoped `parallax.json` (`~/.parallax/parallax.json`), which persists
+ * across projects — where saved defaults live (a project file still overrides). */
+export function userConfigPath(): string {
+  return `${configHome()}/parallax.json`;
+}
+
+/** The subset of settings the app persists automatically (provider/model/theme). */
+export type PersistablePrefs = Pick<LocalConfig, 'provider' | 'model' | 'theme'>;
+
+/**
+ * Persist chosen defaults to the **user** `parallax.json`, so the next launch
+ * opens on the same provider/model/theme without reconfiguration (blueprint
+ * §28.3 — this is the write side of `localDefaults`). Reads the existing file
+ * raw and shallow-merges the patch, so unrelated keys (e.g. custom `providers`)
+ * and hand-written comments-as-values are preserved. Written atomically
+ * (temp+rename) with mode `0644` — this holds no secrets (API keys live in the
+ * separate 0600 `credentials.json`). Best-effort: a failure is logged and
+ * swallowed, exactly like the credentials store, so a read-only home can't brick
+ * a switch.
+ */
+export function saveLocalConfig(patch: PersistablePrefs): void {
+  const path = userConfigPath();
+
+  // Start from whatever is already there (raw, to keep unknown keys), tolerating
+  // a missing or malformed file — we overwrite only the keys in `patch`.
+  let current: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    if (parsed && typeof parsed === 'object') current = parsed as Record<string, unknown>;
+  } catch {
+    /* missing or invalid — start fresh */
+  }
+
+  const next = { ...current };
+  if (patch.provider !== undefined) next.provider = patch.provider;
+  if (patch.model !== undefined) next.model = patch.model;
+  if (patch.theme !== undefined) next.theme = patch.theme;
+
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o644 });
+    renameSync(tmp, path);
+  } catch (err) {
+    log.warn({ err }, 'could not persist parallax.json');
+  }
 }

@@ -20,12 +20,19 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'models', summary: 'List models for a provider', arg: '[provider]' },
   { name: 'provider', summary: 'Switch provider (uses its default model)', arg: 'id' },
   { name: 'providers', summary: 'List providers and key status' },
-  { name: 'mode', summary: 'Set permission mode', arg: 'workspace|plan|read-only' },
+  { name: 'tools', summary: 'List the available agent tools' },
+  { name: 'theme', summary: 'Switch color theme', arg: '[dark|light]' },
+  { name: 'mode', summary: 'Set permission mode', arg: 'workspace|plan|read-only|bypass' },
+  { name: 'workspace', summary: 'Permission mode: ask before side effects' },
+  { name: 'plan', summary: 'Permission mode: research & propose (read-only)' },
+  { name: 'read-only', summary: 'Permission mode: reads only, block side effects' },
+  { name: 'bypass', summary: 'Permission mode: auto-approve everything (careful)' },
   { name: 'sessions', summary: 'List persisted sessions' },
   { name: 'resume', summary: 'Resume a session', arg: '[id]' },
   { name: 'clear', summary: 'Clear the on-screen transcript' },
   { name: 'init', summary: 'Summarize the project into a note' },
-  { name: 'help', summary: 'Show commands and shortcuts' },
+  { name: 'exit', summary: 'Quit Parallax' },
+  { name: 'quit', summary: 'Quit Parallax' },
 ];
 
 /** De-duplicated command list (the array above is authored for menu ordering). */

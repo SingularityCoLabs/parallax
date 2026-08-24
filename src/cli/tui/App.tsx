@@ -5,10 +5,15 @@ import { applyModelSelection, MissingApiKeyError, type Agent } from '../../app/i
 import {
   getProvider,
   listProviders,
+  readUpdateCache,
+  refreshUpdateInfo,
   resolveApiKey,
   saveCredential,
+  saveLocalConfig,
+  upgradeCommand,
   type Config,
   type ProviderInfo,
+  type UpdateInfo,
 } from '../../config/index.ts';
 import { VERSION } from '../../version.ts';
 import {
@@ -27,7 +32,10 @@ import { WelcomeBanner, AnimatedWelcome } from './components/WelcomeBanner.tsx';
 import { ModelDialog, type ModelSelection } from './components/ModelDialog.tsx';
 
 /** Permission-mode cycle order for Shift+Tab (Claude Code style). */
-const MODE_CYCLE: PermissionMode[] = ['workspace', 'plan', 'read-only'];
+const MODE_CYCLE: PermissionMode[] = ['workspace', 'plan', 'read-only', 'bypass'];
+
+/** The permission modes settable by name (the `/workspace`, `/bypass`, … shortcuts). */
+const MODE_NAMES: readonly PermissionMode[] = ['workspace', 'plan', 'read-only', 'bypass'];
 
 export interface AppProps {
   agent: Agent;
@@ -64,7 +72,8 @@ export interface AppProps {
 export function App(props: AppProps): React.ReactElement {
   const { agent, sessionId } = props;
   const { exit } = useApp();
-  const theme = getTheme(props.themeName);
+  const [themeName, setThemeName] = useState<ThemeName>(props.themeName ?? 'dark');
+  const theme = getTheme(themeName);
   const state = useRuntimeEvents(agent, props.seedEvents);
 
   const [provider, setProvider] = useState(props.initialProvider);
@@ -88,6 +97,21 @@ export function App(props: AppProps): React.ReactElement {
   const [dialogProviders, setDialogProviders] = useState<ProviderInfo[]>([]);
   const [dialogInitialProvider, setDialogInitialProvider] = useState<string | undefined>(undefined);
   const [sessionKeys, setSessionKeys] = useState<Record<string, string>>({});
+  // "Update available" banner data: read the local cache immediately, then do a
+  // best-effort network refresh. Both are non-blocking and never throw.
+  const [update, setUpdate] = useState<UpdateInfo | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    void readUpdateCache().then((u) => {
+      if (live && u) setUpdate(u);
+    });
+    void refreshUpdateInfo().then((u) => {
+      if (live && u) setUpdate(u);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   /** True when a provider already has a usable key (env, on-disk, or session). */
   const hasKey = useCallback(
@@ -116,6 +140,17 @@ export function App(props: AppProps): React.ReactElement {
   const pushSystem = useCallback((text: string) => {
     setSystemLines((prev) => [...prev.slice(-40), ...text.split('\n')]);
   }, []);
+
+  /** Set the permission mode for subsequent turns (used by /mode, the mode
+   * shortcuts, and Shift+Tab). Updates the local indicator and the session. */
+  const applyMode = useCallback(
+    async (next: PermissionMode) => {
+      setMode(next);
+      await agent.facade.setPermissionMode(sessionId, next);
+      pushSystem(`permission mode → ${next}`);
+    },
+    [agent, pushSystem, sessionId],
+  );
 
   const resolveApproval = useCallback(
     (id: string, decision: ApprovalDecision) => {
@@ -157,6 +192,8 @@ export function App(props: AppProps): React.ReactElement {
         setProvider(applied.provider);
         setModel(applied.model);
         setNeedsSetup(false);
+        // Remember the choice so the next launch opens on it (env still wins).
+        saveLocalConfig({ provider: applied.provider, model: applied.model });
         pushSystem(`switched → ${applied.provider}:${applied.model}`);
       } catch (err) {
         if (err instanceof MissingApiKeyError) {
@@ -222,13 +259,39 @@ export function App(props: AppProps): React.ReactElement {
             setSystemLines([]);
             return;
           }
+          if (command.name === 'exit' || command.name === 'quit') {
+            exit();
+            return;
+          }
+          // Permission-mode shortcuts: `/workspace`, `/plan`, `/read-only`, `/bypass`.
+          if ((MODE_NAMES as readonly string[]).includes(command.name)) {
+            await applyMode(command.name as PermissionMode);
+            return;
+          }
           if (command.name === 'mode') {
             const arg = line.split(/\s+/)[1] as PermissionMode | undefined;
-            const next = arg && MODE_CYCLE.includes(arg) ? arg : undefined;
-            if (!next) return pushSystem('usage: /mode workspace|plan|read-only');
-            await agent.facade.setPermissionMode(sessionId, next);
-            setMode(next);
-            pushSystem(`permission mode → ${next}`);
+            const next = arg && MODE_NAMES.includes(arg) ? arg : undefined;
+            if (!next) return pushSystem('usage: /mode workspace|plan|read-only|bypass');
+            await applyMode(next);
+            return;
+          }
+          if (command.name === 'theme') {
+            const arg = line.split(/\s+/)[1];
+            const next: ThemeName =
+              arg === 'dark' || arg === 'light' ? arg : themeName === 'dark' ? 'light' : 'dark';
+            setThemeName(next);
+            saveLocalConfig({ theme: next });
+            pushSystem(`theme → ${next}`);
+            return;
+          }
+          if (command.name === 'tools') {
+            const tools = agent.facade.listTools();
+            pushSystem(
+              [
+                'available tools:',
+                ...tools.map((t) => `  ${t.name.padEnd(16)} ${t.description}`),
+              ].join('\n'),
+            );
             return;
           }
           if (command.name === 'sessions') {
@@ -270,7 +333,7 @@ export function App(props: AppProps): React.ReactElement {
           return;
       }
     },
-    [agent, model, openDialog, provider, pushSystem, sessionId, submitTurn, switchTo],
+    [agent, applyMode, model, openDialog, provider, pushSystem, submitTurn, switchTo, themeName],
   );
 
   const submit = useCallback(
@@ -342,6 +405,13 @@ export function App(props: AppProps): React.ReactElement {
   // The launch splash. While the intro animates it lives in the dynamic frame
   // (so the ✻ mark can pulse); once frozen it becomes the timeline's static
   // header, printed once at the top and scrolling up as the conversation grows.
+  const updateProps =
+    update && update.latest !== update.current
+      ? {
+          updateNotice: `update available ${update.current} → ${update.latest}`,
+          upgradeCmd: upgradeCommand(update),
+        }
+      : {};
   const banner = (
     <WelcomeBanner
       theme={theme}
@@ -351,6 +421,7 @@ export function App(props: AppProps): React.ReactElement {
       mode={mode}
       cwd={props.cwd}
       needsSetup={needsSetup}
+      {...updateProps}
     />
   );
 

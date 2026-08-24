@@ -2,7 +2,7 @@ import { newToolCallId, type ToolCall } from '../../protocol/index.ts';
 import type { ModelEvent } from '../ModelEvent.ts';
 import type { ModelRequest } from '../ModelRequest.ts';
 import type { ModelCapabilities, ModelProvider } from '../ModelProvider.ts';
-import { ProviderHttpError, redactSecrets, safeText } from '../errors.ts';
+import { ProviderHttpError, providerHttpError, redactSecrets, safeText } from '../errors.ts';
 import { parseSseStream } from '../openai/sse.ts';
 import { toMessagesRequest } from './messagesRequest.ts';
 
@@ -93,7 +93,7 @@ export class AnthropicProvider implements ModelProvider {
 
     if (!res.ok) {
       const detail = await safeText(res);
-      throw new ProviderHttpError(res.status, `${this.name} API error ${res.status}: ${detail}`);
+      throw providerHttpError(this.name, res.status, detail);
     }
     if (!res.body) {
       throw new ProviderHttpError(res.status, `${this.name} API returned no response body`);

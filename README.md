@@ -21,24 +21,28 @@ proposes actions; deterministic code validates, authorizes, and executes them.
 
 ## Install
 
-Install the beta CLI globally:
+Install the CLI globally:
 
 ```bash
-npm install --global @singularitycolabs/parallax@next
+npm install --global @singularitycolabs/parallax
 parallax --help
 ```
 
 Or run it without a global installation:
 
 ```bash
-npx --yes @singularitycolabs/parallax@next --help
+npx --yes @singularitycolabs/parallax --help
 ```
 
 Install the SDK in a Node.js project:
 
 ```bash
-npm install @singularitycolabs/parallax@next
+npm install @singularitycolabs/parallax
 ```
+
+Parallax checks npm on startup and prints an upgrade line when a newer version
+is out (re-run the install command above to update; disable the check with
+`PARALLAX_NO_UPDATE_CHECK=1`).
 
 ## Uninstall
 
@@ -141,16 +145,36 @@ the history carries over to the new model:
 > /models                          list models for the current provider (with price/context)
 > /provider openai                 switch provider (uses its default model)
 > /model anthropic/claude-sonnet-4-6   switch provider + model in one step
-> /model gpt-4o                    switch model on the current provider
-> /mode plan                       switch permission mode (or Shift+Tab to cycle)
+> /model                           open the interactive model picker
+> /tools                           list the available agent tools
+> /theme light                     switch the color theme (toggles with no arg)
+> /mode plan                       set permission mode (or /plan, /workspace, /read-only, /bypass)
 > /sessions                        list persisted sessions
 > /help                            show all commands
 ```
 
-Keys: **Shift+Tab** cycles the permission mode (`workspace → plan → read-only`),
-**Esc**/**Ctrl-C** cancels the in-flight turn (or quits when idle), **↑/↓** walk
-input history, **Tab** completes a slash command. At an approval prompt, choose
-**Yes**, **Yes and don't ask again** (remembers the tool for the session), or **No**.
+The chosen provider/model (and theme) are remembered in
+`~/.parallax/parallax.json`, and an API key entered in the `/model` picker is
+saved to `~/.parallax/credentials.json` (mode 0600) by default — so the next
+launch opens ready, with no reconfiguration. Environment variables still take
+precedence over the saved values.
+
+Keys: **Shift+Tab** cycles the permission mode
+(`workspace → plan → read-only → bypass`), **Esc**/**Ctrl-C** cancels the
+in-flight turn (or quits when idle), **↑/↓** move through the slash-command menu
+(or walk input history when it's closed), **Enter/Tab** apply the highlighted
+command. At an approval prompt, choose **Yes**, **Yes and don't ask again**
+(remembers the tool for the session), or **No**.
+
+Permission modes (deterministic `ALLOW / ASK / DENY`):
+
+- **workspace** (default) — reads are allowed; writes/shell/network **ask** first.
+- **plan** — research & propose: reads allowed, side effects blocked, until you
+  approve a plan via the `present_plan` gate (which flips you to workspace).
+- **read-only** — reads only; every side effect blocked.
+- **bypass** — auto-approve **everything** with no prompts. The one guardrail
+  that still holds: a path escaping the workspace root is always denied. The
+  footer turns red so this state is obvious — use it deliberately.
 
 Resume a past session straight into the UI, transcript and all:
 
@@ -171,16 +195,17 @@ cp .env.example .env   # then fill in your key
 
 Config resolves as `CLI flag > env > parallax.json > built-in default`:
 
-| Variable                                  | Purpose                                 | Default                       |
-| ----------------------------------------- | --------------------------------------- | ----------------------------- |
-| `PARALLAX_PROVIDER` (or `-p`)             | provider id (see table above)           | `fake`                        |
-| `<PROVIDER>_API_KEY` / `PARALLAX_API_KEY` | API key for the provider                | —                             |
-| `TAVILY_API_KEY`                          | API key for the `web_search` tool       | —                             |
-| `PARALLAX_MODEL` (or `-m`)                | model id                                | provider's default            |
-| `PARALLAX_API_BASE_URL`                   | override the OpenAI-compatible endpoint | provider's default            |
-| `PARALLAX_MODELS_URL`                     | models.dev catalog endpoint             | `https://models.dev/api.json` |
-| `PARALLAX_DISABLE_MODELS_FETCH`           | use only the bundled catalog snapshot   | (fetch enabled)               |
-| `PARALLAX_NO_TUI`                         | force the plain renderer on a TTY       | (TUI on a TTY)                |
+| Variable                                  | Purpose                                   | Default                       |
+| ----------------------------------------- | ----------------------------------------- | ----------------------------- |
+| `PARALLAX_PROVIDER` (or `-p`)             | provider id (see table above)             | `fake`                        |
+| `<PROVIDER>_API_KEY` / `PARALLAX_API_KEY` | API key for the provider                  | —                             |
+| `TAVILY_API_KEY`                          | API key for the `web_search` tool         | —                             |
+| `PARALLAX_MODEL` (or `-m`)                | model id                                  | provider's default            |
+| `PARALLAX_API_BASE_URL`                   | override the OpenAI-compatible endpoint   | provider's default            |
+| `PARALLAX_MODELS_URL`                     | models.dev catalog endpoint               | `https://models.dev/api.json` |
+| `PARALLAX_DISABLE_MODELS_FETCH`           | use only the bundled catalog snapshot     | (fetch enabled)               |
+| `PARALLAX_NO_UPDATE_CHECK`                | skip the startup "update available" check | (check enabled)               |
+| `PARALLAX_NO_TUI`                         | force the plain renderer on a TTY         | (TUI on a TTY)                |
 
 ### Model catalog & custom providers (OpenCode-style)
 
@@ -243,9 +268,10 @@ approval → execute → persist → model`.
 - Web tools: `web_search` (via Tavily) and `web_fetch` (URL → readable text),
   classified as `network` risk with SSRF guards (localhost / private / link-local
   and cloud-metadata targets are refused, redirects re-validated).
-- Deterministic `ALLOW / ASK / DENY` policy with `read-only`, `workspace`, and
-  `plan` modes; approvals support "allow once" and "allow always" (remembered
-  per session).
+- Deterministic `ALLOW / ASK / DENY` policy with `read-only`, `workspace`,
+  `plan`, and `bypass` modes; approvals support "allow once" and "allow always"
+  (remembered per session). `bypass` auto-approves everything but still denies
+  any path outside the workspace root.
 - SQLite session persistence + resume (interactive or `--print`).
 - A **Claude Code-like terminal UI** (React + Ink): streaming transcript, tool
   blocks with live output + diffs, an interactive approval menu, a bordered

@@ -6,11 +6,27 @@
 
 export class ProviderHttpError extends Error {
   readonly status: number;
+  /** Classifies this in `turn.failed` as a provider issue, not a Parallax bug. */
+  readonly code = 'provider_error';
   constructor(status: number, message: string) {
     super(message);
     this.name = 'ProviderHttpError';
     this.status = status;
   }
+}
+
+/**
+ * Build a `ProviderHttpError` from a non-2xx model response, adding a "pick
+ * another model" hint for the statuses that almost always mean the model id is
+ * wrong or retired (404 Not Found, 410 Gone — e.g. an end-of-life model). Keeps
+ * both adapters' error surfaces identical and actionable.
+ */
+export function providerHttpError(name: string, status: number, detail: string): ProviderHttpError {
+  const hint =
+    status === 404 || status === 410
+      ? ` — this model may be unavailable; run \`/models ${name}\` or \`/model\` to pick another.`
+      : '';
+  return new ProviderHttpError(status, `${name} API error ${status}: ${detail}${hint}`);
 }
 
 /** Read up to 500 chars of an error body without throwing. */

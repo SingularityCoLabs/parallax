@@ -97,7 +97,9 @@ export function ModelDialog({
   const [selected, setSelected] = useState(0);
   const [providerId, setProviderId] = useState(preset?.id ?? '');
   const [keyText, setKeyText] = useState('');
-  const [remember, setRemember] = useState(false);
+  // Default ON: a key entered here is saved to the 0600 credentials store so the
+  // next launch reuses it (toggle off with Tab to keep it for this run only).
+  const [remember, setRemember] = useState(true);
   const [hint, setHint] = useState('');
   // The model chosen while we detour through the key step (its default when we
   // jumped straight to key entry for a preset provider).
@@ -313,9 +315,9 @@ function ProviderList({
         const statusColor = !p.supported ? theme.subtle : keyed ? theme.success : theme.warning;
         return (
           <Box key={p.id}>
-            <Text color={active ? theme.accent : theme.subtle}>{active ? '❯ ' : '  '}</Text>
+            <Text color={active ? theme.selection : theme.subtle}>{active ? '❯ ' : '  '}</Text>
             <Text color={statusColor}>{statusGlyph} </Text>
-            <Text color={theme.text} bold={active}>
+            <Text color={active ? theme.selection : theme.text} bold={active}>
               {p.label}
             </Text>
             <Text color={theme.subtle}>
@@ -361,8 +363,8 @@ function ModelList({
         if (isCustom) {
           return (
             <Box key="__custom">
-              <Text color={active ? theme.accent : theme.subtle}>{active ? '❯ ' : '  '}</Text>
-              <Text color={active ? theme.text : theme.subtle} bold={active}>
+              <Text color={active ? theme.selection : theme.subtle}>{active ? '❯ ' : '  '}</Text>
+              <Text color={active ? theme.selection : theme.subtle} bold={active}>
                 Use “{customModel}”
               </Text>
               <Text color={theme.subtle}> (custom id)</Text>
@@ -372,8 +374,8 @@ function ModelList({
         const meta = formatModelMeta(modelInfo?.[row]);
         return (
           <Box key={row}>
-            <Text color={active ? theme.accent : theme.subtle}>{active ? '❯ ' : '  '}</Text>
-            <Text color={theme.text} bold={active}>
+            <Text color={active ? theme.selection : theme.subtle}>{active ? '❯ ' : '  '}</Text>
+            <Text color={active ? theme.selection : theme.text} bold={active}>
               {row}
             </Text>
             {meta !== '' && <Text color={theme.subtle}> · {meta}</Text>}

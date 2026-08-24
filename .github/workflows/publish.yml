@@ -158,17 +158,20 @@ jobs:
 
       - name: Publish to npm with provenance
         if: ${{ steps.release.outputs.needs_publish == 'true' }}
-        env:
-          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
         run: |
           set -euo pipefail
 
-          if [[ "${PACKAGE_VERSION}" == *-* ]]; then
-            npm_tag=next
-          else
-            npm_tag=latest
-          fi
-          npm publish --provenance --tag "${npm_tag}" --access public
+          # Pre-1.0 policy: the newest build IS the release, so publish it under
+          # `latest` even when it is a prerelease (0.1.0-beta.N). This is what makes
+          # a plain `npm install --global @singularitycolabs/parallax` fetch the
+          # newest version — the default install resolves the `latest` dist-tag.
+          #
+          # We deliberately set a single tag here: trusted publishing (OIDC)
+          # authorizes only `npm publish`, not a follow-up `npm dist-tag add`, so we
+          # can't also move `next` in the same run. That's fine pre-1.0 — the app's
+          # update notice points at the plain (latest) install command. When a
+          # stable 1.0.0 line begins, reintroduce a `next` channel for prereleases.
+          npm publish --provenance --access public --tag latest
 
       - name: Create GitHub Release
         env:

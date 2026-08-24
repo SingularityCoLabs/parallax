@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeApiKey } from '../src/config/index.ts';
-import { redactSecrets, OpenAiCompatibleProvider, type FetchLike } from '../src/providers/index.ts';
+import {
+  redactSecrets,
+  providerHttpError,
+  OpenAiCompatibleProvider,
+  ProviderHttpError,
+  type FetchLike,
+} from '../src/providers/index.ts';
 import type { ModelRequest } from '../src/providers/index.ts';
 
 describe('sanitizeApiKey', () => {
@@ -88,5 +94,61 @@ describe('provider never leaks the key in a transport error', () => {
     const message = caught instanceof Error ? caught.message : String(caught);
     expect(message).not.toContain(key);
     expect(message).toContain('<redacted>');
+  });
+});
+
+describe('providerHttpError classification', () => {
+  it('carries a provider_error code (not internal_error) for turn.failed', () => {
+    const err = providerHttpError('nvidia', 500, 'boom');
+    expect(err).toBeInstanceOf(ProviderHttpError);
+    expect(err.code).toBe('provider_error');
+    expect(err.status).toBe(500);
+  });
+
+  it('adds a "pick another model" hint for 404/410 (retired/unknown model)', () => {
+    const gone = providerHttpError('nvidia', 410, '{"detail":"end of life"}');
+    expect(gone.message).toMatch(/end of life/);
+    expect(gone.message).toMatch(/\/models nvidia|\/model/);
+    const notFound = providerHttpError('openai', 404, 'no such model');
+    expect(notFound.message).toMatch(/pick another/i);
+  });
+
+  it('omits the hint for other statuses (e.g. 401 auth)', () => {
+    const unauth = providerHttpError('nvidia', 401, 'unauthorized');
+    expect(unauth.message).not.toMatch(/pick another/i);
+  });
+
+  it('surfaces a 410 through the provider stream with the hint', async () => {
+    const fetchImpl: FetchLike = () =>
+      Promise.resolve(
+        new Response('{"status":410,"detail":"The model has reached its end of life."}', {
+          status: 410,
+        }),
+      );
+    const provider = new OpenAiCompatibleProvider({
+      name: 'nvidia',
+      baseUrl: 'https://x.test/v1',
+      apiKey: 'nvapi-ok',
+      fetchImpl,
+    });
+    let caught: unknown;
+    try {
+      for await (const _ of provider.stream(
+        {
+          model: 'z-ai/glm-5.2',
+          system: 's',
+          messages: [{ role: 'user', content: 'hi' }],
+          tools: [],
+        },
+        new AbortController().signal,
+      ))
+        void _;
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ProviderHttpError);
+    expect((caught as ProviderHttpError).code).toBe('provider_error');
+    expect((caught as Error).message).toMatch(/end of life/);
+    expect((caught as Error).message).toMatch(/\/model/);
   });
 });
