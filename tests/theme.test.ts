@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { BRAND_PRIMARY, darkTheme, lightTheme, getTheme, glyphs } from '../src/cli/tui/theme.ts';
 
 describe('theme', () => {
-  it('uses the exact #DC0000 primary with blue interaction and orange warning roles', () => {
-    expect(BRAND_PRIMARY).toBe('rgb(220,0,0)');
+  it('uses the exact #0066FF primary with blue interaction and orange warning roles', () => {
+    expect(BRAND_PRIMARY).toBe('rgb(0,102,255)');
     expect(darkTheme).toMatchObject({
       accent: BRAND_PRIMARY,
       selection: 'rgb(78,161,255)',
