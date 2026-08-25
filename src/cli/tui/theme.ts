@@ -1,7 +1,7 @@
 /**
- * TUI color palette. Parallax's identity is the exact **#DC0000** brand red for
- * marks, borders, bullets, and the prompt. Blue handles interactive selection,
- * links, and permissions; orange handles warnings and other attention states.
+ * TUI color palette. Parallax's identity is the exact **#0066FF** brand blue for
+ * marks, borders, bullets, and the prompt. Lighter blues handle interactive
+ * selection, links, and permissions; orange handles warnings and attention.
  * Primary body text stays high-contrast (near-white on dark, near-black on
  * light) for readability — only secondary text is tinted.
  *
@@ -10,7 +10,7 @@
  * the semantic roles the components reference.
  */
 export interface Theme {
-  /** Brand accent (wordmark, prompt border, bullets). Red. */
+  /** Brand accent (wordmark, prompt border, bullets). Blue. */
   accent: string;
   /** Lighter accent for secondary emphasis / intro pulse. */
   accentDim: string;
@@ -30,15 +30,15 @@ export interface Theme {
   diffRemoved: string;
 }
 
-/** Exact brand primary requested for both terminal themes (#DC0000). */
-export const BRAND_PRIMARY = 'rgb(220,0,0)';
+/** Exact brand primary requested for both terminal themes (#0066FF). */
+export const BRAND_PRIMARY = 'rgb(0,102,255)';
 
-/** Dark theme (default) — brand red, blue interactions, orange attention. */
+/** Dark theme (default) — brand blue, lighter interactions, orange attention. */
 export const darkTheme: Theme = {
   accent: BRAND_PRIMARY,
-  // A brighter red is available for secondary emphasis and intro motion while
-  // the exact requested red remains the canonical brand accent.
-  accentDim: 'rgb(255,77,77)',
+  // A lighter blue is available for secondary emphasis and intro motion while
+  // the exact requested blue remains the canonical brand accent.
+  accentDim: 'rgb(77,148,255)',
   selection: 'rgb(78,161,255)',
   permission: 'rgb(56,189,248)',
   text: 'rgb(242,244,248)',
@@ -50,10 +50,10 @@ export const darkTheme: Theme = {
   diffRemoved: 'rgb(255,92,122)',
 };
 
-/** Light theme — exact brand red with darker blue/orange semantic colors. */
+/** Light theme — exact brand blue with darker blue/orange semantic colors. */
 export const lightTheme: Theme = {
   accent: BRAND_PRIMARY,
-  accentDim: 'rgb(167,0,0)',
+  accentDim: 'rgb(0,61,153)',
   selection: 'rgb(0,95,204)',
   permission: 'rgb(0,122,159)',
   text: 'rgb(25,28,32)',
